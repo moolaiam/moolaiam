@@ -1,0 +1,84 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		26F76A56053B61C8FD3FEB0C = {isa = PBXBuildFile; fileRef = 2470CD6C28193E9770393B84; };
+		315529F8539A3C753DF10629 = {isa = PBXBuildFile; fileRef = 30BF8D7F84677C141F391CAC; };
+		85FCBB809AD092DA9DFFD447 = {isa = PBXBuildFile; fileRef = C51F24702C9C222B5B076938; };
+		AE1DE1B9323C7B07D8F967CC = {isa = PBXBuildFile; fileRef = AD92B9CBA60643C77F6FCA2A; };
+		4BE4815B2A4DB6C622DC8053 = {isa = PBXBuildFile; fileRef = BF87329F1F80F6102F683158; };
+		3CD852C3EC6FB2AA1F82E7FB = {isa = PBXBuildFile; fileRef = 6CB06EF0E321E174845FC9F6; };
+		EE7B568941226D1AE9735569 = {isa = PBXBuildFile; fileRef = 3E91A1D37874FF77EC1EB61F; };
+		085058109CA8F008E0E65FBB = {isa = PBXBuildFile; fileRef = F809630E9AC3952759B022EE; };
+		81D217F7C16E7EFA84F984C7 = {isa = PBXBuildFile; fileRef = 5C34978FA91EE71C6E6A4DED; };
+		377B1D51630E1AEA2D2CB13F = {isa = PBXBuildFile; fileRef = 60616978FC8624964D4BCCD7; };
+		E74B77B12A07E523C3FE813B = {isa = PBXBuildFile; fileRef = A68ABAA4F68B2B299BC6E61A; };
+		7C52592CFB298BEFDC580235 = {isa = PBXBuildFile; fileRef = 86DB401A1FF26505D9025321; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		F5BF48AA40CAD7891EB709FC = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = WonderQuest.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		2470CD6C28193E9770393B84 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WonderQuestApp.swift; sourceTree = "<group>"; };
+		30BF8D7F84677C141F391CAC = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameState.swift; sourceTree = "<group>"; };
+		C51F24702C9C222B5B076938 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundManager.swift; sourceTree = "<group>"; };
+		AD92B9CBA60643C77F6FCA2A = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdventureMapView.swift; sourceTree = "<group>"; };
+		BF87329F1F80F6102F683158 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		6CB06EF0E321E174845FC9F6 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumberMeadowView.swift; sourceTree = "<group>"; };
+		3E91A1D37874FF77EC1EB61F = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParentDashboardView.swift; sourceTree = "<group>"; };
+		F809630E9AC3952759B022EE = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhonicsSafariView.swift; sourceTree = "<group>"; };
+		5C34978FA91EE71C6E6A4DED = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrizeShopView.swift; sourceTree = "<group>"; };
+		60616978FC8624964D4BCCD7 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PuzzlePeaksView.swift; sourceTree = "<group>"; };
+		A68ABAA4F68B2B299BC6E61A = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryAndMusicView.swift; sourceTree = "<group>"; };
+		86DB401A1FF26505D9025321 = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		3AACD762DC22D4FFC888F92C = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		424153ED3CD079DB4DB459AF = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		5285FA5E261486C88893DBE7 = {isa = PBXGroup; children = (30BF8D7F84677C141F391CAC); sourceTree = "<group>"; path = Models; name = Models; };
+		829EC91F19328050450E241F = {isa = PBXGroup; children = (C51F24702C9C222B5B076938); sourceTree = "<group>"; path = Audio; name = Audio; };
+		A7DC097D0A03DB4D9480A86A = {isa = PBXGroup; children = (AD92B9CBA60643C77F6FCA2A, BF87329F1F80F6102F683158, 6CB06EF0E321E174845FC9F6, 3E91A1D37874FF77EC1EB61F, F809630E9AC3952759B022EE, 5C34978FA91EE71C6E6A4DED, 60616978FC8624964D4BCCD7, A68ABAA4F68B2B299BC6E61A); sourceTree = "<group>"; path = Views; name = Views; };
+		82CF2A43A7100F086D7FCFDD = {isa = PBXGroup; children = (2470CD6C28193E9770393B84, 5285FA5E261486C88893DBE7, 829EC91F19328050450E241F, A7DC097D0A03DB4D9480A86A, 86DB401A1FF26505D9025321, 3AACD762DC22D4FFC888F92C); sourceTree = "<group>"; path = WonderQuest; name = WonderQuest; };
+		547D009064F7C3F13BEF3460 = {isa = PBXGroup; children = (F5BF48AA40CAD7891EB709FC); sourceTree = "<group>"; name = Products; };
+		518DA81DB9B99529C0C0AEBE = {isa = PBXGroup; children = (82CF2A43A7100F086D7FCFDD, 547D009064F7C3F13BEF3460); sourceTree = "<group>"; };
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		42AEFBAE01D2DFD981F7DA7D = {isa = PBXNativeTarget; buildConfigurationList = 29558535A58E48B54399819B; buildPhases = (7A70D71C385290AF96BF1031, 424153ED3CD079DB4DB459AF, 285BB1C1430063331E9F5DD0); buildRules = (); dependencies = (); name = WonderQuest; productName = WonderQuest; productReference = F5BF48AA40CAD7891EB709FC; productType = "com.apple.product-type.application"; };
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		46F86FAA6BBF9AC94A7E4595 = {isa = PBXProject; attributes = {BuildIndependentTargetsInParallel = 1; LastSwiftUpdateCheck = 1600; LastUpgradeCheck = 1600; TargetAttributes = {42AEFBAE01D2DFD981F7DA7D = {CreatedOnToolsVersion = 16.0;};};}; buildConfigurationList = F72CF5329F6CB55C2A8467D4; compatibilityVersion = "Xcode 14.0"; developmentRegion = en; hasScannedForEncodings = 0; knownRegions = (en, Base); mainGroup = 518DA81DB9B99529C0C0AEBE; productRefGroup = 547D009064F7C3F13BEF3460; projectDirPath = ""; projectRoot = ""; targets = (42AEFBAE01D2DFD981F7DA7D); };
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		285BB1C1430063331E9F5DD0 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (7C52592CFB298BEFDC580235); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		7A70D71C385290AF96BF1031 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (26F76A56053B61C8FD3FEB0C, 315529F8539A3C753DF10629, 85FCBB809AD092DA9DFFD447, AE1DE1B9323C7B07D8F967CC, 4BE4815B2A4DB6C622DC8053, 3CD852C3EC6FB2AA1F82E7FB, EE7B568941226D1AE9735569, 085058109CA8F008E0E65FBB, 81D217F7C16E7EFA84F984C7, 377B1D51630E1AEA2D2CB13F, E74B77B12A07E523C3FE813B); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		5D8FAFDDCD46CE21C6E6E476 = {isa = XCBuildConfiguration; buildSettings = {ALWAYS_SEARCH_USER_PATHS = NO; CLANG_ENABLE_OBJC_ARC = YES; ENABLE_STRICT_OBJC_MSGSEND = YES; ENABLE_USER_SCRIPT_SANDBOXING = YES; GCC_C_LANGUAGE_STANDARD = gnu17; IPHONEOS_DEPLOYMENT_TARGET = 16.0; SDKROOT = iphoneos; SWIFT_VERSION = 5.0; DEBUG_INFORMATION_FORMAT = dwarf; GCC_OPTIMIZATION_LEVEL = 0; ONLY_ACTIVE_ARCH = YES; SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)"; SWIFT_OPTIMIZATION_LEVEL = "-Onone";}; name = Debug; };
+		5178E246331F9BA6AED4718F = {isa = XCBuildConfiguration; buildSettings = {ALWAYS_SEARCH_USER_PATHS = NO; CLANG_ENABLE_OBJC_ARC = YES; ENABLE_STRICT_OBJC_MSGSEND = YES; ENABLE_USER_SCRIPT_SANDBOXING = YES; GCC_C_LANGUAGE_STANDARD = gnu17; IPHONEOS_DEPLOYMENT_TARGET = 16.0; SDKROOT = iphoneos; SWIFT_VERSION = 5.0; COPY_PHASE_STRIP = NO; SWIFT_COMPILATION_MODE = wholemodule; VALIDATE_PRODUCT = YES;}; name = Release; };
+		472FC1E7F0026BEDEF2DAD09 = {isa = XCBuildConfiguration; buildSettings = {ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon; ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor; CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = WonderQuest/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 16.0; LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks"); MARKETING_VERSION = 1.0; PRODUCT_BUNDLE_IDENTIFIER = com.example.WonderQuest; PRODUCT_NAME = "$(TARGET_NAME)"; SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"; SUPPORTS_MACCATALYST = NO; SWIFT_EMIT_LOC_STRINGS = YES; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = "1,2";}; name = Debug; };
+		3D316E928D62D968BC81EBFF = {isa = XCBuildConfiguration; buildSettings = {ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon; ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor; CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = WonderQuest/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 16.0; LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks"); MARKETING_VERSION = 1.0; PRODUCT_BUNDLE_IDENTIFIER = com.example.WonderQuest; PRODUCT_NAME = "$(TARGET_NAME)"; SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"; SUPPORTS_MACCATALYST = NO; SWIFT_EMIT_LOC_STRINGS = YES; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = "1,2";}; name = Release; };
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		F72CF5329F6CB55C2A8467D4 = {isa = XCConfigurationList; buildConfigurations = (5D8FAFDDCD46CE21C6E6E476, 5178E246331F9BA6AED4718F); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		29558535A58E48B54399819B = {isa = XCConfigurationList; buildConfigurations = (472FC1E7F0026BEDEF2DAD09, 3D316E928D62D968BC81EBFF); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+/* End XCConfigurationList section */
+
+	};
+	rootObject = 46F86FAA6BBF9AC94A7E4595;
+}
