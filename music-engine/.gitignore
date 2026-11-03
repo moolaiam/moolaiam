@@ -7,3 +7,4 @@ dist/
 *.wav
 !tests/fixtures/**/*.wav
 curated/
+server-data/
