@@ -1,0 +1,187 @@
+openapi: 3.1.0
+info:
+  title: Music Generation API
+  version: 0.1.0
+  description: |
+    Prompt submission, token streaming and audio rendering.
+    Schemas mirror `musicengine.schemas`; `tests/test_schemas.py` enforces that they stay in sync.
+servers:
+  - url: https://api.example.invalid
+paths:
+  /v1/generations:
+    post:
+      summary: Submit a generation job
+      description: |
+        Returns 202 with the queued job. Send an `Idempotency-Key` header to make retries safe;
+        a repeated key with the same body returns the original job.
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string, maxLength: 128 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/GenerationRequest" }
+      responses:
+        "202":
+          description: Job queued
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GenerationJob" }
+        "400": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+  /v1/generations/{id}:
+    get:
+      summary: Get job status
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Job
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GenerationJob" }
+        "404": { $ref: "#/components/responses/Error" }
+  /v1/generations/{id}/cancel:
+    post:
+      summary: Cancel a queued or running job
+      description: Cancellation is cooperative; it takes effect within one token chunk (about 0.5 s of audio).
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "202":
+          description: Cancellation requested
+        "409":
+          description: Job already terminal
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorBody" }
+  /v1/generations/{id}/events:
+    get:
+      summary: Stream status and token events (Server-Sent Events)
+      description: |
+        `event: status` carries a StatusEvent; `event: tokens` carries a TokenEvent.
+        Each SSE `id:` is the TokenEvent `sequence`. Reconnect with `Last-Event-ID` to resume
+        from the next chunk without replaying earlier tokens.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - name: Last-Event-ID
+          in: header
+          required: false
+          schema: { type: integer, minimum: 0 }
+      responses:
+        "200":
+          description: SSE stream, closed by the server after a terminal status
+          content:
+            text/event-stream:
+              schema: { type: string }
+  /v1/generations/{id}/audio:
+    get:
+      summary: Download rendered audio
+      description: 409 until the job has succeeded. Supports HTTP Range requests.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: 16-bit PCM stereo WAV, 44.1 kHz
+          content:
+            audio/wav:
+              schema: { type: string, format: binary }
+        "206": { description: Partial content }
+        "409": { $ref: "#/components/responses/Error" }
+  /v1/feedback:
+    post:
+      summary: Record user feedback on a generation
+      description: Raw record. Anonymised by the privacy layer before any post-training use.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FeedbackEvent" }
+      responses:
+        "204": { description: Recorded }
+        "400": { $ref: "#/components/responses/Error" }
+components:
+  responses:
+    Error:
+      description: Error
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorBody" }
+  schemas:
+    GenerationRequest:
+      type: object
+      required: [prompt]
+      additionalProperties: false
+      properties:
+        prompt: { type: string, minLength: 1, maxLength: 1000 }
+        genres: { type: array, maxItems: 5, items: { type: string } }
+        moods: { type: array, maxItems: 5, items: { type: string } }
+        instruments: { type: array, maxItems: 12, items: { type: string } }
+        tempo_bpm: { type: [integer, "null"], minimum: 40, maximum: 240 }
+        key: { type: [string, "null"], pattern: "^[A-G](#|b)?(m)?$" }
+        lyrics: { type: [string, "null"], maxLength: 4000 }
+        instrumental: { type: boolean, default: false }
+        duration_seconds: { type: number, minimum: 5, maximum: 240, default: 30 }
+        seed: { type: [integer, "null"], minimum: 0, maximum: 4294967295 }
+      description: "Setting instrumental to true together with lyrics is rejected with 400."
+    GenerationStatus:
+      type: string
+      enum: [queued, conditioning, generating_tokens, refining, decoding, succeeded, failed, cancelled]
+    GenerationJob:
+      type: object
+      required: [id, status, request, progress, tokens_emitted]
+      properties:
+        id: { type: string }
+        status: { $ref: "#/components/schemas/GenerationStatus" }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        request: { $ref: "#/components/schemas/GenerationRequest" }
+        progress: { type: number, minimum: 0, maximum: 1 }
+        error: { type: [string, "null"] }
+        audio_url: { type: [string, "null"] }
+        tokens_emitted: { type: integer, minimum: 0 }
+    StatusEvent:
+      type: object
+      required: [type, job_id, status, progress]
+      properties:
+        type: { type: string, const: status }
+        job_id: { type: string }
+        status: { $ref: "#/components/schemas/GenerationStatus" }
+        progress: { type: number, minimum: 0, maximum: 1 }
+        error: { type: [string, "null"] }
+    TokenEvent:
+      type: object
+      description: |
+        One chunk of the interleaved acoustic stream, frame-major with `Q` tokens per frame
+        (one per RVQ level). Token ids are offset into the engine vocabulary: level q, code k
+        is `acoustic_base + q * codebook_size + k`. Section markers are not emitted; `section`
+        carries the name instead.
+      required: [type, job_id, sequence, frame_start, frame_count, tokens]
+      properties:
+        type: { type: string, const: tokens }
+        job_id: { type: string }
+        sequence: { type: integer, minimum: 0 }
+        section: { type: [string, "null"] }
+        frame_start: { type: integer, minimum: 0 }
+        frame_count: { type: integer, minimum: 1 }
+        tokens: { type: array, items: { type: integer, minimum: 0 } }
+    FeedbackEvent:
+      type: object
+      required: [job_id, user_id, kind]
+      properties:
+        job_id: { type: string }
+        user_id: { type: string }
+        kind: { type: string, enum: [rating, completion, extend, edit] }
+        value: { type: [number, "null"] }
+        occurred_at: { type: string, format: date-time }
+      description: rating requires value in [1, 5]; completion requires value in [0, 1].
+    ErrorBody:
+      type: object
+      required: [code, message]
+      properties:
+        code: { type: string }
+        message: { type: string }
+        request_id: { type: [string, "null"] }
