@@ -2,6 +2,7 @@
 
 #include <juce_audio_formats/juce_audio_formats.h>
 #include <juce_core/juce_core.h>
+#include <juce_events/juce_events.h>
 
 // Background job: POST a generation, poll until it finishes, download the WAV, decode it.
 // Every callback runs on the message thread and is posted with MessageManager::callAsync.

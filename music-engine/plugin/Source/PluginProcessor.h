@@ -14,6 +14,7 @@ public:
 
     void prepareToPlay(double sampleRate, int samplesPerBlock) override;
     void releaseResources() override {}
+    using juce::AudioProcessor::processBlock;   // keep the double overload visible
     void processBlock(juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
 
     juce::AudioProcessorEditor* createEditor() override;
@@ -51,6 +52,7 @@ public:
 private:
     juce::AudioBuffer<float> clip;
     double clipRate = 44100.0;
+    double hostSampleRate = 44100.0;   // set in prepareToPlay; audio thread only
     juce::SpinLock clipLock;
 
     std::atomic<bool> playing { false };

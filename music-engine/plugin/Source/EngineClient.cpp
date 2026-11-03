@@ -10,6 +10,22 @@ juce::String authHeader(const juce::String& apiKey)
 {
     return apiKey.isEmpty() ? juce::String() : ("Authorization: Bearer " + apiKey + "\n");
 }
+
+// JUCE chooses GET or POST from the parameter-handling mode, not from the request command.
+// A POST must use inPostData; a custom command on an inAddress request sends no body.
+juce::URL::InputStreamOptions postOptions(const juce::String& headers)
+{
+    return juce::URL::InputStreamOptions(juce::URL::ParameterHandling::inPostData)
+        .withExtraHeaders(headers)
+        .withConnectionTimeoutMs(connectTimeoutMs);
+}
+
+juce::URL::InputStreamOptions getOptions(const juce::String& headers)
+{
+    return juce::URL::InputStreamOptions(juce::URL::ParameterHandling::inAddress)
+        .withExtraHeaders(headers)
+        .withConnectionTimeoutMs(connectTimeoutMs);
+}
 }
 
 EngineClient::EngineClient() : juce::Thread("MusicEngineClient") {}
@@ -67,10 +83,7 @@ void EngineClient::finish(Outcome outcome)
 juce::var EngineClient::getJson(const juce::String& path, int& httpStatus, juce::String& errorOut) const
 {
     juce::URL url(request.baseUrl + path);
-    juce::URL::InputStreamOptions opts(juce::URL::ParameterHandling::inAddress);
-    opts = opts.withExtraHeaders(authHeader(request.apiKey))
-               .withConnectionTimeoutMs(connectTimeoutMs)
-               .withStatusCode(&httpStatus);
+    const auto opts = getOptions(authHeader(request.apiKey)).withStatusCode(&httpStatus);
     auto stream = url.createInputStream(opts);
     if (stream == nullptr)
     {
@@ -90,15 +103,10 @@ bool EngineClient::postGeneration(juce::String& errorOut)
         body->setProperty("seed", static_cast<juce::int64>(request.seed));
     const auto payload = juce::JSON::toString(juce::var(body));
 
-    juce::URL url(request.baseUrl + "/v1/generations");
+    juce::URL url = juce::URL(request.baseUrl + "/v1/generations").withPOSTData(payload);
     int status = 0;
-    juce::URL::InputStreamOptions opts(juce::URL::ParameterHandling::inAddress);
-    opts = opts.withExtraHeaders("Content-Type: application/json\n" + authHeader(request.apiKey))
-               .withConnectionTimeoutMs(connectTimeoutMs)
-               .withHttpRequestCmd("POST")
-               .withStatusCode(&status);
-    url = url.withPOSTData(payload);
-
+    const auto opts = postOptions("Content-Type: application/json\n" + authHeader(request.apiKey))
+                          .withStatusCode(&status);
     auto stream = url.createInputStream(opts);
     if (stream == nullptr)
     {
@@ -131,7 +139,7 @@ bool EngineClient::pollUntilDone(juce::String& statusOut, juce::String& errorOut
             return false;
         }
         statusOut = job.getProperty("status", "").toString();
-        const auto progress = static_cast<float>(static_cast<double>(job.getProperty("progress", 0.0)));
+        const auto progress = static_cast<float>(job.getProperty("progress", 0.0).toString().getDoubleValue());
         report(statusOut, progress);
 
         if (statusOut == "succeeded")
@@ -154,13 +162,9 @@ bool EngineClient::pollUntilDone(juce::String& statusOut, juce::String& errorOut
         wait(pollIntervalMs);
     }
 
-    // The user cancelled: tell the server so it stops spending compute.
-    juce::URL url(request.baseUrl + "/v1/generations/" + jobId + "/cancel");
-    juce::URL::InputStreamOptions opts(juce::URL::ParameterHandling::inAddress);
-    opts = opts.withExtraHeaders(authHeader(request.apiKey))
-               .withHttpRequestCmd("POST")
-               .withConnectionTimeoutMs(connectTimeoutMs);
-    if (auto s = url.createInputStream(opts)) { (void) s; }
+    // The user cancelled: tell the server so it stops spending compute. Best effort.
+    juce::URL url = juce::URL(request.baseUrl + "/v1/generations/" + jobId + "/cancel").withPOSTData(juce::String());
+    if (auto s = url.createInputStream(postOptions(authHeader(request.apiKey)))) { (void) s; }
     errorOut = "Cancelled";
     return false;
 }
@@ -168,9 +172,7 @@ bool EngineClient::pollUntilDone(juce::String& statusOut, juce::String& errorOut
 bool EngineClient::downloadAudio(Outcome& out)
 {
     juce::URL url(request.baseUrl + "/v1/generations/" + jobId + "/audio");
-    juce::URL::InputStreamOptions opts(juce::URL::ParameterHandling::inAddress);
-    opts = opts.withExtraHeaders(authHeader(request.apiKey)).withConnectionTimeoutMs(connectTimeoutMs);
-    auto stream = url.createInputStream(opts);
+    auto stream = url.createInputStream(getOptions(authHeader(request.apiKey)));
     if (stream == nullptr)
     {
         out.error = "Could not download the rendered audio";
@@ -180,8 +182,8 @@ bool EngineClient::downloadAudio(Outcome& out)
     stream->readIntoMemoryBlock(bytes);
 
     juce::WavAudioFormat wav;
-    auto reader = wav.createReaderFor(
-        std::make_unique<juce::MemoryInputStream>(bytes, true), true);
+    // createReaderFor takes ownership of the raw stream, and deletes it on failure.
+    auto reader = wav.createReaderFor(new juce::MemoryInputStream(bytes, true), true);
     if (reader == nullptr)
     {
         out.error = "Downloaded audio is not a readable WAV file";

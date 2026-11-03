@@ -8,8 +8,10 @@ MusicEngineProcessor::MusicEngineProcessor()
 
 MusicEngineProcessor::~MusicEngineProcessor() = default;
 
-void MusicEngineProcessor::prepareToPlay(double, int)
+void MusicEngineProcessor::prepareToPlay(double sampleRate, int)
 {
+    // Cache the rate here: getSampleRate() is only set by the host wrapper, not by this call.
+    hostSampleRate = sampleRate > 0.0 ? sampleRate : 44100.0;
     playhead = 0.0;
 }
 
@@ -70,7 +72,7 @@ void MusicEngineProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::
     const int clipLength = clip.getNumSamples();
     const int clipChannels = clip.getNumChannels();
     const int outChannels = buffer.getNumChannels();
-    const double step = clipRate / getSampleRate();   // resample on the fly
+    const double step = clipRate / hostSampleRate;   // resample on the fly
 
     for (int i = 0; i < buffer.getNumSamples(); ++i)
     {
