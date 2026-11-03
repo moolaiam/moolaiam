@@ -55,6 +55,33 @@ def _ingest(args: argparse.Namespace) -> int:
     return 0
 
 
+LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
+
+
+def _serve(args: argparse.Namespace) -> int:
+    import os
+
+    from musicengine.server import API_KEY_ENV, App, make_server
+
+    api_key = os.environ.get(API_KEY_ENV) or None
+    if api_key is None and args.host not in LOOPBACK_HOSTS:
+        print(f"refusing to listen on {args.host} without {API_KEY_ENV} set", file=sys.stderr)
+        return 2
+    if api_key is None:
+        print("warning: no API key set; open access on localhost only", file=sys.stderr)
+    app = App(api_key=api_key, data_dir=args.data_dir)
+    server = make_server(args.host, args.port, app)
+    print(f"serving on http://{args.host}:{server.server_address[1]}", file=sys.stderr)
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        server.server_close()
+        app.close()
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="musicengine")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -78,6 +105,12 @@ def main(argv: list[str] | None = None) -> int:
     i.add_argument("--out", required=True)
     i.add_argument("--allow-licensed", action="store_true", help="enable the v6 licensed tier")
     i.set_defaults(func=_ingest)
+
+    sv = sub.add_parser("serve", help="run the generation HTTP API")
+    sv.add_argument("--host", default="127.0.0.1")
+    sv.add_argument("--port", type=int, default=8000)
+    sv.add_argument("--data-dir", default="server-data", help="holds feedback.jsonl (restricted)")
+    sv.set_defaults(func=_serve)
 
     args = parser.parse_args(argv)
     return args.func(args)

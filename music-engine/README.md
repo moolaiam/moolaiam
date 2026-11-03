@@ -47,6 +47,18 @@ python -m musicengine render --prompt "warm jazz at dusk" --genre jazz --tempo 9
 python -m musicengine ingest --manifest sources.jsonl --out curated/
 ```
 
+## Run the generation server
+
+```bash
+export MUSICENGINE_API_KEY="$(openssl rand -hex 24)"   # required for any non-localhost host
+PYTHONPATH=src python -m musicengine serve --host 127.0.0.1 --port 8000
+```
+
+The server implements `docs/api/openapi.yaml`: `POST /v1/generations`, status polling, SSE token
+events with `Last-Event-ID` resume, WAV download, cancel, and feedback. It runs one job at a time
+and keeps job state in memory, so restarting it loses jobs. Feedback goes to `server-data/feedback.jsonl`,
+which holds raw user ids and must stay restricted. Output comes from the reference components.
+
 ## Using the pipeline from code
 
 ```python

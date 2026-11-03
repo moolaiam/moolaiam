@@ -157,7 +157,7 @@ public:
             if (outcome.ok)
             {
                 expectEquals((int) outcome.audio.getNumChannels(), 2);
-                expectWithinAbsoluteError(outcome.audio.getNumSamples() / outcome.sampleRate, 2.0, 0.01);
+                expectWithinAbsoluteError(outcome.audio.getNumSamples() / outcome.sampleRate, 5.0, 0.01);
                 expect(outcome.audio.getMagnitude(0, outcome.audio.getNumSamples()) > 0.1f);
             }
         }
@@ -181,7 +181,7 @@ private:
         EngineClient::Request req;
         req.baseUrl = baseUrl;
         req.prompt = "test prompt";
-        req.durationSeconds = 2.0;
+        req.durationSeconds = 5.0;   // API minimum is 5 s
         req.instrumental = true;
         req.seed = 3;
         return runJob(req);

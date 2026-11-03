@@ -10,12 +10,12 @@ without a server.
 | Check | Result |
 |---|---|
 | Builds on Linux (VST3, Standalone), no warnings | Verified |
-| Headless tests (9 cases: playback, looping, resampling, state, client) | Pass against a mock server |
-| Builds on macOS (Xcode, VST3 / AU / Standalone) | Not yet built |
+| Headless tests (9 cases: playback, looping, resampling, state, client) | Pass against the real server and the mock |
+| Builds on macOS (Xcode, VST3 / AU / Standalone) | Verified: VST3, AU, Standalone build; `auval` passes |
 | Installed and loaded in a DAW | Not yet done |
 
-The tests use a mock of the generation API (`tests/mock_server.py`). The real server is not built yet,
-so the plug-in's network path has been tested only against the mock.
+The client tests run against the real generation server (`python -m musicengine serve`), and against
+the mock in `tests/mock_server.py`.
 
 ## Layout
 
@@ -82,7 +82,8 @@ PYTHONPATH=src python -m musicengine render --prompt "warm jazz at dusk" \
 
 Press **Play**, or send a MIDI note.
 
-Generation through the server returns "could not reach the server" until the API is built.
+For generation, start the server (see the repo's `music-engine/README.md`) and point the plug-in at it.
+The default address is `http://localhost:8000`.
 
 ## Run the headless tests
 
@@ -97,8 +98,8 @@ Without a URL, the server test is skipped and the playback tests still run.
 
 ## Known gaps before v0.1 is usable
 
-1. macOS build and install (not yet done).
-2. The API server is not built. Generation depends on it.
+1. Test with the real server and the plug-in in a DAW (the Standalone app is verified; hosts are not yet).
+2. The server uses reference components, so the songs are not musical yet. Jobs live in memory only.
 3. No settings screen for the server address or API key.
 4. Clip playback is one-shot per MIDI note, with no beat or tempo sync to the host transport.
 5. No code signing or notarisation for distribution.
