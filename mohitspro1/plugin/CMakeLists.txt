@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.22)
 
-# JUCE 7.0.12 calls an API that the macOS 15+ SDK marks unavailable. Targeting macOS 14
-# avoids that call. The plugin still runs on macOS 14 and later.
+# Older JUCE (7.0.x) calls an API the macOS 15+ SDK marks unavailable. The pinned JUCE 8 fixes
+# that, so this is only a fallback. It still works on macOS 14 and later.
 set(CMAKE_OSX_DEPLOYMENT_TARGET "14.0" CACHE STRING "Minimum macOS version" FORCE)
 project(MohitsPro1 VERSION 1.0.0 LANGUAGES C CXX)
 
@@ -11,7 +11,7 @@ include(FetchContent)
 FetchContent_Declare(
     JUCE
     GIT_REPOSITORY https://github.com/juce-framework/JUCE.git
-    GIT_TAG        7.0.12
+    GIT_TAG        8.0.17-security
     GIT_SHALLOW    TRUE
 )
 FetchContent_MakeAvailable(JUCE)
