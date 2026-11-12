@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.22)
 project(MohitsPro1 VERSION 1.0.0 LANGUAGES C CXX)
 
+# JUCE 7.0.12 calls an API that the macOS 15+ SDK marks unavailable. Targeting macOS 14
+# avoids that call. The plugin still runs on macOS 14 and later.
+set(CMAKE_OSX_DEPLOYMENT_TARGET "14.0" CACHE STRING "Minimum macOS version" FORCE)
+
 # JUCE is downloaded at configure time, so no Projucer is needed.
 # Pin the version so every build matches.
 include(FetchContent)
