@@ -2,6 +2,7 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "ParameterLayout.h"
+#include "MasterChain.h"
 
 // Step 2 of the processor: parameters and state are in place. Audio passes through
 // unchanged until the DSP steps (master chain, neural slots, filters) are added.
@@ -39,6 +40,13 @@ public:
 private:
     double currentSampleRate = 44100.0;
     int currentBlockSize = 512;
+
+    // Master section (step 3). Trims, mix and bypass from the parameter tree.
+    MohitsDSP::MasterChain masterChain;
+    std::atomic<float>* pInputTrim  = nullptr;
+    std::atomic<float>* pOutputTrim = nullptr;
+    std::atomic<float>* pMix        = nullptr;
+    std::atomic<float>* pBypass     = nullptr;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MohitsProcessor)
 };

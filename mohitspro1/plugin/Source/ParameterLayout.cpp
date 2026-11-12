@@ -40,7 +40,7 @@ namespace Mohits
         addContinuous (layout, MohitsIDs::inputGain,  "Input Trim",         0.5f);
         addContinuous (layout, MohitsIDs::outputGain, "Output Trim",        0.5f);
         addContinuous (layout, MohitsIDs::mix,        "Dry / Wet Mix",      1.0f);
-        addToggle     (layout, MohitsIDs::bypass,     "Bypass",             false);
+        addToggle     (layout, MohitsIDs::bypass,     "Master Bypass",      false);
         addToggle     (layout, MohitsIDs::levelMatch, "Level Match",        true);
         addChoice     (layout, MohitsIDs::quality,    "Quality (Oversampling)", qualityModes, 1); // 2x
 

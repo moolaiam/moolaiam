@@ -7,12 +7,17 @@ MohitsProcessor::MohitsProcessor()
                           .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
       apvts (*this, nullptr, "PARAMETERS", Mohits::createParameterLayout())
 {
+    pInputTrim  = apvts.getRawParameterValue (MohitsIDs::inputGain);
+    pOutputTrim = apvts.getRawParameterValue (MohitsIDs::outputGain);
+    pMix        = apvts.getRawParameterValue (MohitsIDs::mix);
+    pBypass     = apvts.getRawParameterValue (MohitsIDs::bypass);
 }
 
 void MohitsProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     currentSampleRate = sampleRate;
     currentBlockSize = samplesPerBlock;
+    masterChain.prepare (sampleRate);
 }
 
 bool MohitsProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
@@ -26,10 +31,26 @@ void MohitsProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
 {
     juce::ScopedNoDenormals noDenormals;
 
-    // No DSP yet: the signal passes through. Bypass and mix are handled in step 3.
-    const int totalChannels = getTotalNumInputChannels();
-    for (int ch = totalChannels; ch < buffer.getNumChannels(); ++ch)
-        buffer.clear (ch, 0, buffer.getNumSamples());
+    const int numSamples = buffer.getNumSamples();
+
+    // Stereo only, matching the bus layout. Anything else passes through untouched.
+    if (buffer.getNumChannels() < 2)
+        return;
+
+    masterChain.setParams (pInputTrim->load(),
+                           pOutputTrim->load(),
+                           pMix->load(),
+                           pBypass->load() >= 0.5f);
+
+    float* left  = buffer.getWritePointer (0);
+    float* right = buffer.getWritePointer (1);
+
+    for (int i = 0; i < numSamples; ++i)
+        masterChain.processSample (left[i], right[i]);
+
+    // Clear any extra output channels.
+    for (int ch = 2; ch < buffer.getNumChannels(); ++ch)
+        buffer.clear (ch, 0, numSamples);
 }
 
 juce::AudioProcessorEditor* MohitsProcessor::createEditor()
