@@ -1,13 +1,29 @@
 # MOHITS PRO 1 — C++ plugin (JUCE)
 
-This folder holds the audio side of the plugin. The UI in `../src` already talks to it through `window.__JUCE__`.
+Builds the plugin from a terminal with CMake. No Projucer or manual project setup is needed. JUCE 7.0.12 is downloaded automatically.
+
+## Build (macOS)
+
+Requires Xcode (with command line tools) and CMake 3.22 or newer.
+
+```bash
+cd mohitspro1/plugin
+cmake -B build -G Xcode
+cmake --build build --config Release --target MohitsPro1_Standalone   # the app, for testing
+cmake --build build --config Release --target MohitsPro1_VST3         # the DAW plugin
+cmake --build build --config Release --target MohitsPro1_AU           # Logic / GarageBand
+```
+
+The Standalone app is in `build/MohitsPro1_artefacts/Release/Standalone/`. Open it first to confirm the plugin runs.
+
+The VST3 and AU plugins go into the usual system folders when you copy them there (or when you run the install step your DAW uses). `COPY_PLUGIN_AFTER_BUILD` is off, so copy them yourself: `~/Library/Audio/Plug-Ins/VST3/` and `~/Library/Audio/Plug-Ins/Components/`.
 
 ## Status
 
 | Step | Component | State |
 | --- | --- | --- |
-| 1 | Parameter layer (`ParamIDs.h`, `ParameterLayout.*`, `ParamConversion.h`) | Written. The conversion header is tested here. The JUCE files still need a build on your machine. |
-| 2 | State save and recall | next |
+| 1 | Parameter layer (`ParamIDs.h`, `ParameterLayout.*`, `ParamConversion.h`) | Written. Build on your Mac. |
+| 2 | State save and recall | Written in `PluginProcessor.cpp` (APVTS XML). Build on your Mac. |
 | 3 | Master chain (trims, bypass crossfade, dry/wet mix) | |
 | 4 | Neural slots ×4 | |
 | 5 | Oversampling and latency reporting | |
@@ -30,16 +46,10 @@ This folder holds the audio side of the plugin. The UI in `../src` already talks
   g++ -std=c++17 -Wall -Wextra -Werror tests/ParamConversionTest.cpp -o /tmp/pc_test && /tmp/pc_test
   ```
 
-## Build requirements
+## Honest status of what's been compiled
 
-- JUCE 7 or newer. `ParameterLayout.cpp` uses `juce::ParameterID`, which JUCE 6 doesn't have.
-- Plugin formats are not chosen yet (VST3, AU, AAX or CLAP). Set them up in your JUCE project when you create it.
-
-## Next step on the laptop
-
-1. Create a JUCE audio plugin project (Projucer or CMake) and add `Source/` to it.
-2. Make sure `ParameterLayout.cpp` compiles. Fix any JUCE-version differences there first.
-3. Build step 2 (state save and recall) on top of the layout.
+- `ParamConversion.h` and its tests: compiled and passing with g++ in the development container.
+- `CMakeLists.txt`, `PluginProcessor.*`, `PluginEditor.*`, `ParameterLayout.*`: written but **not yet compiled**. The development container can't download JUCE, so the first real build is on your Mac. If it fails, paste the first error.
 
 ## Open decisions that affect later steps
 
