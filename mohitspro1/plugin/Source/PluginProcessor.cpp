@@ -1,5 +1,6 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "ParamIDs.h"
 
 MohitsProcessor::MohitsProcessor()
     : AudioProcessor (BusesProperties()
