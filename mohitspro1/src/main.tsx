@@ -1,16 +1,10 @@
-import { StrictMode } from 'react';
-import { createRoot } from 'react-dom/client';
-import { createDefaultHost } from './host';
-import { ParamProvider } from './state/ParamContext';
-import { Plugin } from './ui/Plugin';
-import './styles/app.css';
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
+import MohitsPro1 from "./components/MohitsPro1.tsx";
+import "./styles/mohits.css";
 
-const host = createDefaultHost();
-
-createRoot(document.getElementById('root')!).render(
+createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <ParamProvider host={host}>
-      <Plugin />
-    </ParamProvider>
-  </StrictMode>,
+    <MohitsPro1 />
+  </StrictMode>
 );

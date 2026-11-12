@@ -1,193 +1,232 @@
-import { clamp01 } from '../util';
+export const NEURAL_TYPES = ["Tube", "Transformer", "Tape", "Console", "Solid State"] as const;
+export const FILTER_SLOPES = ["6dB", "12dB", "24dB", "48dB"] as const;
+export const CHANNEL_MODES = ["L/R", "M/S"] as const;
+export const QUALITY_MODES = ["1x", "2x", "4x"] as const;
 
-/**
- * Single source of truth for every parameter the UI controls.
- *
- * Every value is normalized to 0..1, which is what the host stores and automates:
- *   - float:  the value itself, displayed through `format`
- *   - bool:   0 = off, 1 = on
- *   - choice: index / (count - 1), so choice 0 = 0.0 and last choice = 1.0
- *
- * The host side must register one 0..1 slider relay per ID below (see README).
- */
+export type ParamKind = "continuous" | "toggle" | "choice";
 
-export const SLOT_TYPES = ['Tube', 'Transformer', 'Tape', 'Console', 'Solid State'] as const;
-export const SLOPES = ['6dB', '12dB', '24dB', '48dB'] as const;
-export const STEREO_MODES = ['LR', 'MS'] as const;
-
-export type SlotType = (typeof SLOT_TYPES)[number];
-export type Slope = (typeof SLOPES)[number];
-export type StereoMode = (typeof STEREO_MODES)[number];
-
-export type SlotNumber = 1 | 2 | 3 | 4;
-export type FilterPrefix = 'hpf' | 'lpf';
-
-export type ParamId =
-  | `slot${SlotNumber}.${'gain' | 'drive' | 'harmonic' | 'x2' | 'type'}`
-  | `eq.${'character' | 'tilt' | 'sweetSpot'}`
-  | `${FilterPrefix}.${'freq' | 'res' | 'drive' | 'slope'}`
-  | `route.${'preEq' | 'postFilters' | 'parallel' | 'stereo'}`;
-
-export type Values = Record<ParamId, number>;
-
-export interface SlotSettings {
-  gain: number;
-  drive: number;
-  x2: boolean;
-  harmonic: number;
-  type: SlotType;
+export interface ParamDef {
+  readonly id: ParamId;
+  readonly label: string;
+  readonly defaultValue: number; // Always normalized 0..1
+  readonly kind: ParamKind;
+  readonly choices?: readonly string[];
+  readonly format: (normalized: number) => string;
 }
 
-export interface FilterSettings {
-  freq: number;
-  res: number;
-  drive: number;
-  slope: Slope;
+export const PARAM_IDS = [
+  "master.inputGain",
+  "master.outputGain",
+  "master.mix",
+  "master.bypass",
+  "master.levelMatch",
+  "master.quality",
+  "slot1.enabled",
+  "slot1.gain",
+  "slot1.drive",
+  "slot1.x2",
+  "slot1.harmonicExp",
+  "slot1.type",
+  "slot2.enabled",
+  "slot2.gain",
+  "slot2.drive",
+  "slot2.x2",
+  "slot2.harmonicExp",
+  "slot2.type",
+  "slot3.enabled",
+  "slot3.gain",
+  "slot3.drive",
+  "slot3.x2",
+  "slot3.harmonicExp",
+  "slot3.type",
+  "slot4.enabled",
+  "slot4.gain",
+  "slot4.drive",
+  "slot4.x2",
+  "slot4.harmonicExp",
+  "slot4.type",
+  "eq.character",
+  "eq.tilt",
+  "eq.sweetSpot",
+  "hpf.freq",
+  "hpf.resonance",
+  "hpf.drive",
+  "hpf.slope",
+  "lpf.freq",
+  "lpf.resonance",
+  "lpf.drive",
+  "lpf.slope",
+  "routing.preEq",
+  "routing.postFilters",
+  "routing.channelMode",
+] as const;
+
+export type ParamId = (typeof PARAM_IDS)[number];
+export type ParamMap = Record<ParamId, number>;
+
+export function clamp01(v: number): number {
+  if (!Number.isFinite(v)) return 0;
+  return Math.max(0, Math.min(1, v));
 }
 
-export type ParamKind = 'float' | 'bool' | 'choice';
-
-export interface ParamSpec {
-  id: ParamId;
-  label: string;
-  kind: ParamKind;
-  /** Normalized default, 0..1. */
-  default: number;
-  /** Choice labels, for kind === 'choice'. */
-  options?: readonly string[];
-  format: (v: number) => string;
+export function choiceToNormalized(index: number, count: number): number {
+  if (count <= 1) return 0;
+  return clamp01(index / (count - 1));
 }
 
-// ── Discrete helpers ───────────────────────────────────────────────────────────
-
-export function choiceIndex(count: number, v: number): number {
-  return Math.round(clamp01(v) * (count - 1));
+export function normalizedToChoiceIndex(normalized: number, count: number): number {
+  if (count <= 1) return 0;
+  return Math.round(clamp01(normalized) * (count - 1));
 }
 
-export function choiceValue(count: number, index: number): number {
-  return count <= 1 ? 0 : index / (count - 1);
-}
-
-// ── Formatters ─────────────────────────────────────────────────────────────────
-
-const pct = (v: number): string => `${Math.round(clamp01(v) * 100)}%`;
-
-/** Gain is stored 0..1 and displayed as -12..+12 dB around 0.5. */
-const gainDb = (v: number): string => {
-  const d = (clamp01(v) - 0.5) * 24;
-  const r = Math.abs(d) < 0.05 ? 0 : d;
-  return `${r > 0 ? '+' : ''}${r.toFixed(1)} dB`;
+const formatDbBipolar = (v: number): string => {
+  const db = (clamp01(v) - 0.5) * 24;
+  return `${db >= 0 ? "+" : ""}${db.toFixed(1)} dB`;
 };
 
-/** Log-mapped frequency, so 0..1 sweeps evenly per octave. */
-const hzFormat =
-  (min: number, max: number) =>
-  (v: number): string => {
-    const hz = min * Math.pow(max / min, clamp01(v));
-    return hz >= 1000 ? `${(hz / 1000).toFixed(2)} kHz` : `${Math.round(hz)} Hz`;
-  };
+const formatPercent = (v: number): string => `${Math.round(clamp01(v) * 100)}%`;
 
-// ── Spec builders ──────────────────────────────────────────────────────────────
+const formatToggle = (v: number): string => (clamp01(v) >= 0.5 ? "ON" : "OFF");
 
-const float = (id: ParamId, label: string, def: number, format: (v: number) => string): ParamSpec => ({
-  id,
-  label,
-  kind: 'float',
-  default: def,
-  format,
-});
-
-const bool = (id: ParamId, label: string, def: boolean): ParamSpec => ({
-  id,
-  label,
-  kind: 'bool',
-  default: def ? 1 : 0,
-  format: (v) => (clamp01(v) >= 0.5 ? 'On' : 'Off'),
-});
-
-const choice = (
-  id: ParamId,
-  label: string,
-  options: readonly string[],
-  defIndex: number,
-): ParamSpec => ({
-  id,
-  label,
-  kind: 'choice',
-  options,
-  default: choiceValue(options.length, defIndex),
-  format: (v) => options[choiceIndex(options.length, v)],
-});
-
-// ── Defaults (musical starting point, mirrors the original mock's values) ─────
-
-export const SLOT_DEFAULTS: Record<SlotNumber, SlotSettings> = {
-  1: { gain: 0.52, drive: 0.35, x2: false, harmonic: 0.45, type: 'Tube' },
-  2: { gain: 0.48, drive: 0.42, x2: true, harmonic: 0.55, type: 'Transformer' },
-  3: { gain: 0.55, drive: 0.3, x2: false, harmonic: 0.4, type: 'Tape' },
-  4: { gain: 0.5, drive: 0.5, x2: false, harmonic: 0.6, type: 'Console' },
+const formatLogHz = (minHz: number, maxHz: number) => (v: number): string => {
+  const hz = Math.round(minHz * Math.pow(maxHz / minHz, clamp01(v)));
+  return hz >= 1000 ? `${(hz / 1000).toFixed(2)} kHz` : `${hz} Hz`;
 };
 
-export const FILTER_DEFAULTS: Record<FilterPrefix, FilterSettings> = {
-  hpf: { freq: 0.18, res: 0.25, drive: 0.2, slope: '24dB' },
-  lpf: { freq: 0.82, res: 0.25, drive: 0.2, slope: '24dB' },
-};
+const formatChoice = (choices: readonly string[]) => (v: number): string =>
+  choices[normalizedToChoiceIndex(v, choices.length)] ?? choices[0];
 
-export const EQ_DEFAULTS = { character: 0.5, tilt: 0.5, sweetSpot: 0.65 } as const;
-
-/** Frequency sweep ranges in Hz. HPF and LPF are separate, so the UI doesn't cross them. */
-export const FILTER_RANGE_HZ: Record<FilterPrefix, readonly [number, number]> = {
-  hpf: [20, 1200],
-  lpf: [1500, 20000],
-};
-
-// ── Parameter table ────────────────────────────────────────────────────────────
-
-const slotSpecs = (n: SlotNumber): ParamSpec[] => {
-  const d = SLOT_DEFAULTS[n];
-  return [
-    float(`slot${n}.gain`, `Slot ${n} gain`, d.gain, gainDb),
-    float(`slot${n}.drive`, `Slot ${n} drive`, d.drive, pct),
-    float(`slot${n}.harmonic`, `Slot ${n} harmonic exponent`, d.harmonic, pct),
-    bool(`slot${n}.x2`, `Slot ${n} X2`, d.x2),
-    choice(`slot${n}.type`, `Slot ${n} type`, SLOT_TYPES, SLOT_TYPES.indexOf(d.type)),
-  ];
-};
-
-const filterSpecs = (p: FilterPrefix): ParamSpec[] => {
-  const d = FILTER_DEFAULTS[p];
-  const [lo, hi] = FILTER_RANGE_HZ[p];
-  const name = p.toUpperCase();
-  return [
-    float(`${p}.freq`, `${name} frequency`, d.freq, hzFormat(lo, hi)),
-    float(`${p}.res`, `${name} resonance`, d.res, pct),
-    float(`${p}.drive`, `${name} analog drive`, d.drive, pct),
-    choice(`${p}.slope`, `${name} slope`, SLOPES, SLOPES.indexOf(d.slope)),
-  ];
-};
-
-export const PARAMS: readonly ParamSpec[] = [
-  ...slotSpecs(1),
-  ...slotSpecs(2),
-  ...slotSpecs(3),
-  ...slotSpecs(4),
-  float('eq.character', 'EQ character', EQ_DEFAULTS.character, pct),
-  float('eq.tilt', 'EQ tilt', EQ_DEFAULTS.tilt, pct),
-  float('eq.sweetSpot', 'Sweet spot', EQ_DEFAULTS.sweetSpot, pct),
-  ...filterSpecs('hpf'),
-  ...filterSpecs('lpf'),
-  bool('route.preEq', 'Pre EQ', true),
-  bool('route.postFilters', 'Post filters', true),
-  bool('route.parallel', 'Parallel mix', true),
-  choice('route.stereo', 'Stereo mode', STEREO_MODES, 0),
+const makeSlotDefs = (slotNum: 1 | 2 | 3 | 4, defaults: { gain: number; drive: number; x2: number; harmonicExp: number; typeIdx: number }): ParamDef[] => [
+  { id: `slot${slotNum}.enabled` as ParamId, label: `Slot ${slotNum} Enabled`, defaultValue: 1, kind: "toggle", format: formatToggle },
+  { id: `slot${slotNum}.gain` as ParamId, label: `Slot ${slotNum} Gain`, defaultValue: defaults.gain, kind: "continuous", format: formatDbBipolar },
+  { id: `slot${slotNum}.drive` as ParamId, label: `Slot ${slotNum} Drive`, defaultValue: defaults.drive, kind: "continuous", format: formatPercent },
+  { id: `slot${slotNum}.x2` as ParamId, label: `Slot ${slotNum} X2`, defaultValue: defaults.x2, kind: "toggle", format: formatToggle },
+  { id: `slot${slotNum}.harmonicExp` as ParamId, label: `Slot ${slotNum} Harmonic Exp`, defaultValue: defaults.harmonicExp, kind: "continuous", format: formatPercent },
+  {
+    id: `slot${slotNum}.type` as ParamId,
+    label: `Slot ${slotNum} Type`,
+    defaultValue: choiceToNormalized(defaults.typeIdx, NEURAL_TYPES.length),
+    kind: "choice",
+    choices: NEURAL_TYPES,
+    format: formatChoice(NEURAL_TYPES),
+  },
 ];
 
-export const SPEC: Record<ParamId, ParamSpec> = Object.fromEntries(
-  PARAMS.map((p) => [p.id, p]),
-) as Record<ParamId, ParamSpec>;
+const ALL_PARAM_DEFS: readonly ParamDef[] = [
+  { id: "master.inputGain", label: "Input Trim", defaultValue: 0.5, kind: "continuous", format: formatDbBipolar },
+  { id: "master.outputGain", label: "Output Trim", defaultValue: 0.5, kind: "continuous", format: formatDbBipolar },
+  { id: "master.mix", label: "Dry / Wet Mix", defaultValue: 1, kind: "continuous", format: formatPercent },
+  { id: "master.bypass", label: "Bypass", defaultValue: 0, kind: "toggle", format: formatToggle },
+  { id: "master.levelMatch", label: "Level Match", defaultValue: 1, kind: "toggle", format: formatToggle },
+  { id: "master.quality", label: "Quality (Oversampling)", defaultValue: choiceToNormalized(1, QUALITY_MODES.length), kind: "choice", choices: QUALITY_MODES, format: formatChoice(QUALITY_MODES) },
+  ...makeSlotDefs(1, { gain: 0.52, drive: 0.35, x2: 0, harmonicExp: 0.45, typeIdx: 0 }),
+  ...makeSlotDefs(2, { gain: 0.48, drive: 0.42, x2: 1, harmonicExp: 0.55, typeIdx: 1 }),
+  ...makeSlotDefs(3, { gain: 0.55, drive: 0.30, x2: 0, harmonicExp: 0.40, typeIdx: 2 }),
+  ...makeSlotDefs(4, { gain: 0.50, drive: 0.50, x2: 0, harmonicExp: 0.60, typeIdx: 3 }),
+  { id: "eq.character", label: "One Knob EQ Character", defaultValue: 0.50, kind: "continuous", format: formatPercent },
+  { id: "eq.tilt", label: "One Knob EQ Low/Mix", defaultValue: 0.50, kind: "continuous", format: formatPercent },
+  { id: "eq.sweetSpot", label: "Sweet Spot", defaultValue: 0.65, kind: "continuous", format: formatPercent },
+  { id: "hpf.freq", label: "HPF Frequency", defaultValue: 0.18, kind: "continuous", format: formatLogHz(20, 1200) },
+  { id: "hpf.resonance", label: "HPF Resonance", defaultValue: 0.25, kind: "continuous", format: formatPercent },
+  { id: "hpf.drive", label: "HPF Drive", defaultValue: 0.20, kind: "continuous", format: formatPercent },
+  { id: "hpf.slope", label: "HPF Slope", defaultValue: choiceToNormalized(2, FILTER_SLOPES.length), kind: "choice", choices: FILTER_SLOPES, format: formatChoice(FILTER_SLOPES) },
+  { id: "lpf.freq", label: "LPF Frequency", defaultValue: 0.82, kind: "continuous", format: formatLogHz(1500, 20000) },
+  { id: "lpf.resonance", label: "LPF Resonance", defaultValue: 0.25, kind: "continuous", format: formatPercent },
+  { id: "lpf.drive", label: "LPF Drive", defaultValue: 0.20, kind: "continuous", format: formatPercent },
+  { id: "lpf.slope", label: "LPF Slope", defaultValue: choiceToNormalized(2, FILTER_SLOPES.length), kind: "choice", choices: FILTER_SLOPES, format: formatChoice(FILTER_SLOPES) },
+  { id: "routing.preEq", label: "Pre EQ", defaultValue: 1, kind: "toggle", format: formatToggle },
+  { id: "routing.postFilters", label: "Post Filters", defaultValue: 1, kind: "toggle", format: formatToggle },
+  { id: "routing.channelMode", label: "Channel Mode", defaultValue: 0, kind: "choice", choices: CHANNEL_MODES, format: formatChoice(CHANNEL_MODES) },
+];
 
-export const PARAM_IDS: readonly ParamId[] = PARAMS.map((p) => p.id);
+export const PARAM_SPEC: Record<ParamId, ParamDef> = Object.fromEntries(
+  ALL_PARAM_DEFS.map((def) => [def.id, def])
+) as Record<ParamId, ParamDef>;
 
-export function defaultValues(): Values {
-  return Object.fromEntries(PARAMS.map((p) => [p.id, p.default])) as Values;
+export const DEFAULT_PARAMS: ParamMap = Object.fromEntries(
+  ALL_PARAM_DEFS.map((def) => [def.id, clamp01(def.defaultValue)])
+) as ParamMap;
+
+export const PRESET_OVERRIDES = {
+  "Advanced Genesis Library Browser": {},
+  "Clean Transparent": {
+    "slot1.gain": 0.50,
+    "slot1.drive": 0.12,
+    "slot1.x2": 0,
+    "slot1.harmonicExp": 0.20,
+    "slot1.type": choiceToNormalized(4, NEURAL_TYPES.length),
+    "slot2.gain": 0.50,
+    "slot2.drive": 0.10,
+    "slot2.x2": 0,
+    "slot2.harmonicExp": 0.15,
+    "slot2.type": choiceToNormalized(3, NEURAL_TYPES.length),
+    "eq.character": 0.50,
+    "eq.tilt": 0.50,
+    "eq.sweetSpot": 0.35,
+    "hpf.freq": 0.10,
+    "hpf.resonance": 0.15,
+    "hpf.drive": 0.10,
+    "hpf.slope": choiceToNormalized(1, FILTER_SLOPES.length),
+    "lpf.freq": 0.92,
+    "lpf.resonance": 0.15,
+    "lpf.drive": 0.10,
+    "lpf.slope": choiceToNormalized(1, FILTER_SLOPES.length),
+  },
+  "Vintage Warmth": {
+    "slot1.gain": 0.60,
+    "slot1.drive": 0.65,
+    "slot1.x2": 1,
+    "slot1.harmonicExp": 0.70,
+    "slot1.type": choiceToNormalized(0, NEURAL_TYPES.length),
+    "slot2.gain": 0.55,
+    "slot2.drive": 0.58,
+    "slot2.x2": 0,
+    "slot2.harmonicExp": 0.62,
+    "slot2.type": choiceToNormalized(2, NEURAL_TYPES.length),
+    "eq.character": 0.22,
+    "eq.tilt": 0.38,
+    "eq.sweetSpot": 0.78,
+    "hpf.freq": 0.15,
+    "hpf.resonance": 0.30,
+    "hpf.drive": 0.45,
+    "hpf.slope": choiceToNormalized(1, FILTER_SLOPES.length),
+    "lpf.freq": 0.74,
+    "lpf.resonance": 0.35,
+    "lpf.drive": 0.40,
+    "lpf.slope": choiceToNormalized(2, FILTER_SLOPES.length),
+  },
+  "Digital Edge": {
+    "slot1.gain": 0.58,
+    "slot1.drive": 0.72,
+    "slot1.x2": 1,
+    "slot1.harmonicExp": 0.80,
+    "slot1.type": choiceToNormalized(4, NEURAL_TYPES.length),
+    "slot3.gain": 0.62,
+    "slot3.drive": 0.64,
+    "slot3.x2": 1,
+    "slot3.harmonicExp": 0.75,
+    "slot3.type": choiceToNormalized(1, NEURAL_TYPES.length),
+    "eq.character": 0.76,
+    "eq.tilt": 0.68,
+    "eq.sweetSpot": 0.84,
+    "hpf.freq": 0.24,
+    "hpf.resonance": 0.45,
+    "hpf.drive": 0.35,
+    "hpf.slope": choiceToNormalized(3, FILTER_SLOPES.length),
+    "lpf.freq": 0.88,
+    "lpf.resonance": 0.40,
+    "lpf.drive": 0.30,
+    "lpf.slope": choiceToNormalized(2, FILTER_SLOPES.length),
+  },
+} as const satisfies Record<string, Partial<ParamMap>>;
+
+export type PresetName = keyof typeof PRESET_OVERRIDES;
+
+export function resolvePreset(name: PresetName): ParamMap {
+  const overrides = PRESET_OVERRIDES[name];
+  const out = { ...DEFAULT_PARAMS };
+  for (const [k, v] of Object.entries(overrides)) {
+    out[k as ParamId] = clamp01(v as number);
+  }
+  return out;
 }

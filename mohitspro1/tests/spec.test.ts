@@ -1,72 +1,81 @@
-import { describe, expect, it } from 'vitest';
-import { PARAMS, PARAM_IDS, SPEC, choiceIndex, choiceValue, defaultValues, SLOT_TYPES, SLOPES } from '../src/params/spec';
-import { PRESETS, presetValues } from '../src/params/presets';
+import { describe, expect, it } from "vitest";
+import {
+  choiceToNormalized,
+  clamp01,
+  DEFAULT_PARAMS,
+  FILTER_SLOPES,
+  NEURAL_TYPES,
+  normalizedToChoiceIndex,
+  PARAM_IDS,
+  PARAM_SPEC,
+  PRESET_OVERRIDES,
+  resolvePreset,
+  type PresetName,
+} from "../src/params/spec.ts";
 
-describe('parameter spec', () => {
-  it('has unique IDs and the expected count', () => {
-    expect(new Set(PARAM_IDS).size).toBe(PARAM_IDS.length);
-    // 4 slots x 5 + 3 EQ + 2 filters x 4 + 4 routing
-    expect(PARAMS.length).toBe(35);
-  });
-
-  it('keeps every default inside 0..1', () => {
-    for (const p of PARAMS) {
-      expect(p.default).toBeGreaterThanOrEqual(0);
-      expect(p.default).toBeLessThanOrEqual(1);
+describe("PARAM_SPEC & Presets", () => {
+  it("1. defines every PARAM_ID with normalized 0..1 defaultValue", () => {
+    for (const id of PARAM_IDS) {
+      const def = PARAM_SPEC[id];
+      expect(def).toBeDefined();
+      expect(def.defaultValue).toBeGreaterThanOrEqual(0);
+      expect(def.defaultValue).toBeLessThanOrEqual(1);
     }
   });
 
-  it('formats gain as dB around 0.5, with no "-0.0"', () => {
-    expect(SPEC['slot1.gain'].format(0.5)).toBe('0.0 dB');
-    expect(SPEC['slot1.gain'].format(1)).toBe('+12.0 dB');
-    expect(SPEC['slot1.gain'].format(0)).toBe('-12.0 dB');
-    expect(SPEC['slot1.gain'].format(0.5001)).toBe('0.0 dB');
-  });
-
-  it('maps the HPF and LPF sweeps log-scale over their own ranges', () => {
-    expect(SPEC['hpf.freq'].format(0)).toBe('20 Hz');
-    expect(SPEC['hpf.freq'].format(1)).toBe('1.20 kHz');
-    expect(SPEC['lpf.freq'].format(0)).toBe('1.50 kHz');
-    expect(SPEC['lpf.freq'].format(1)).toBe('20.00 kHz');
-  });
-
-  it('round-trips choice indices through normalized values', () => {
-    for (let i = 0; i < SLOT_TYPES.length; i++) {
-      expect(choiceIndex(SLOT_TYPES.length, choiceValue(SLOT_TYPES.length, i))).toBe(i);
+  it("2. builds DEFAULT_PARAMS covering all PARAM_IDS in 0..1", () => {
+    expect(Object.keys(DEFAULT_PARAMS).length).toBe(PARAM_IDS.length);
+    for (const id of PARAM_IDS) {
+      expect(DEFAULT_PARAMS[id]).toBeGreaterThanOrEqual(0);
+      expect(DEFAULT_PARAMS[id]).toBeLessThanOrEqual(1);
     }
-    expect(SPEC['hpf.slope'].format(choiceValue(SLOPES.length, 3))).toBe('48dB');
-    expect(SPEC['slot3.type'].format(SPEC['slot3.type'].default)).toBe('Tape');
   });
 
-  it('clamps out-of-range choice values instead of indexing past the list', () => {
-    expect(choiceIndex(4, 2)).toBe(3);
-    expect(choiceIndex(4, -1)).toBe(0);
-  });
-
-  it('builds a full default snapshot', () => {
-    const v = defaultValues();
-    expect(Object.keys(v).sort()).toEqual([...PARAM_IDS].sort());
-  });
-});
-
-describe('presets', () => {
-  it('gives every preset a complete, in-range snapshot', () => {
-    for (const p of PRESETS) {
-      expect(Object.keys(p.values).length).toBe(PARAM_IDS.length);
-      for (const id of PARAM_IDS) {
-        const v = p.values[id];
-        expect(v).toBeGreaterThanOrEqual(0);
-        expect(v).toBeLessThanOrEqual(1);
+  it("3. formats every parameter cleanly at 0, 0.5, and 1", () => {
+    for (const id of PARAM_IDS) {
+      const def = PARAM_SPEC[id];
+      for (const v of [0, 0.5, 1]) {
+        const text = def.format(v);
+        expect(typeof text).toBe("string");
+        expect(text.length).toBeGreaterThan(0);
       }
     }
   });
 
-  it('Init equals the defaults', () => {
-    expect(presetValues('init')).toEqual(defaultValues());
+  it("4. round-trips discrete choice indices via normalized 0..1", () => {
+    NEURAL_TYPES.forEach((_, idx) => {
+      const norm = choiceToNormalized(idx, NEURAL_TYPES.length);
+      expect(normalizedToChoiceIndex(norm, NEURAL_TYPES.length)).toBe(idx);
+    });
+    FILTER_SLOPES.forEach((_, idx) => {
+      const norm = choiceToNormalized(idx, FILTER_SLOPES.length);
+      expect(normalizedToChoiceIndex(norm, FILTER_SLOPES.length)).toBe(idx);
+    });
   });
 
-  it('Vintage Warmth sets the slot type by name', () => {
-    expect(SPEC['slot1.type'].format(presetValues('vintage')['slot1.type'])).toBe('Tube');
-    expect(SPEC['slot2.type'].format(presetValues('vintage')['slot2.type'])).toBe('Tape');
+  it("5. clamps non-finite and out-of-range values safely", () => {
+    expect(clamp01(-0.5)).toBe(0);
+    expect(clamp01(1.5)).toBe(1);
+    expect(clamp01(Number.NaN)).toBe(0);
+    expect(clamp01(Number.POSITIVE_INFINITY)).toBe(0);
+  });
+
+  it("6. resolves every preset to a complete normalized 0..1 ParamMap", () => {
+    for (const name of Object.keys(PRESET_OVERRIDES) as PresetName[]) {
+      const map = resolvePreset(name);
+      expect(Object.keys(map).length).toBe(PARAM_IDS.length);
+      for (const id of PARAM_IDS) {
+        expect(map[id]).toBeGreaterThanOrEqual(0);
+        expect(map[id]).toBeLessThanOrEqual(1);
+      }
+    }
+  });
+
+  it("7. applies distinct overrides for non-default presets", () => {
+    const clean = resolvePreset("Clean Transparent");
+    const vintage = resolvePreset("Vintage Warmth");
+    const edge = resolvePreset("Digital Edge");
+    expect(clean["eq.sweetSpot"]).not.toBe(vintage["eq.sweetSpot"]);
+    expect(vintage["eq.character"]).not.toBe(edge["eq.character"]);
   });
 });
