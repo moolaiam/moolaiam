@@ -29,7 +29,7 @@ npm run preview    # serve dist/ to check the built page
 **Meters:** stereo dBFS and VU, with time-based ballistics and peak hold. They show NO SIGNAL when the host sends no meter data.
 
 **Presets and state:**
-- Built-in presets: Advanced Genesis Library Browser (default), Clean Transparent, Vintage Warmth, Digital Edge.
+- Built-in presets: Mo' Hits Signature (default), Clean Transparent, Vintage Warmth, Digital Edge.
 - Save the current sound under a name, delete saved presets, and export or import them as `.json` files.
 - A/B with independent slots. Copy A→B (or B→A) to start from the current sound.
 - Revert reloads the selected preset and discards edits.
@@ -84,7 +84,7 @@ tests/                  vitest suites: spec, meters, bridge, store, producer
 ## Decisions to confirm
 
 - The old "Parallel Wet & Dry" on/off became a continuous **Dry / Wet Mix** (`master.mix`).
-- The default preset name is still "Advanced Genesis Library Browser", as in the uploaded build.
+- The default preset is named "Mo' Hits Signature" (a play on MOHITS, "more hits"). Rename it in `PRESET_OVERRIDES` and `BASE_PRESET` if you want another name.
 - The decorative ring labels around the Character knob ("Warm", "Punch", …) and the "GPU Acceleration / NAM / AnalogX" footer claims were removed. They didn't reflect anything the plugin does.
 - The EQ tilt knob is labelled "Tilt" instead of "One Knob EQ", so the two knobs no longer share a name.
 - The meters are shown as Input and Output (left and right). The uploaded build didn't say what each side is.

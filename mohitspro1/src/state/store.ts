@@ -13,7 +13,7 @@ import { HostWriteQueue } from "../host/bridge.ts";
 export type ABSlot = "A" | "B";
 
 export const CUSTOM_PRESET = "Custom";
-export const BASE_PRESET: PresetName = "Advanced Genesis Library Browser";
+export const BASE_PRESET: PresetName = "Mo' Hits Signature";
 export const PRESET_FILE_FORMAT = "mohits-pro-1-preset";
 export const PRESET_FILE_VERSION = 1;
 const HISTORY_LIMIT = 200;

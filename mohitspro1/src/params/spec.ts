@@ -148,7 +148,7 @@ export const DEFAULT_PARAMS: ParamMap = Object.fromEntries(
 ) as ParamMap;
 
 export const PRESET_OVERRIDES = {
-  "Advanced Genesis Library Browser": {},
+  "Mo' Hits Signature": {},
   "Clean Transparent": {
     "slot1.gain": 0.50,
     "slot1.drive": 0.12,
