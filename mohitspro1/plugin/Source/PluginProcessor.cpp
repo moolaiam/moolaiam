@@ -1,6 +1,7 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include "ParamIDs.h"
+#include <cmath>
 
 MohitsProcessor::MohitsProcessor()
     : AudioProcessor (BusesProperties()
@@ -46,8 +47,23 @@ void MohitsProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     float* left  = buffer.getWritePointer (0);
     float* right = buffer.getWritePointer (1);
 
+#if MOHITS_TEST_TONE
+    // Diagnostic: output a 440 Hz tone at -12 dBFS instead of the audio.
+    static double testPhase = 0.0;
+    const double increment = 2.0 * juce::MathConstants<double>::pi * 440.0 / currentSampleRate;
+    for (int i = 0; i < numSamples; ++i)
+    {
+        const float s = 0.25f * static_cast<float> (std::sin (testPhase));
+        testPhase += increment;
+        if (testPhase > 2.0 * juce::MathConstants<double>::pi)
+            testPhase -= 2.0 * juce::MathConstants<double>::pi;
+        left[i] = s;
+        right[i] = s;
+    }
+#else
     for (int i = 0; i < numSamples; ++i)
         masterChain.processSample (left[i], right[i]);
+#endif
 
     // Clear any extra output channels.
     for (int ch = 2; ch < buffer.getNumChannels(); ++ch)

@@ -47,6 +47,15 @@ juce_add_binary_data (MohitsUIData SOURCES "${UI_HTML}")
 
 juce_generate_juce_header(MohitsPro1)
 
+# Diagnostic only: replace the output with a 440 Hz tone, to check whether the plugin's
+# output reaches the host. Turn on with: cmake -B build -G Xcode -DMOHITS_TEST_TONE=ON
+option (MOHITS_TEST_TONE "Replace the output with a test tone (diagnostic)" OFF)
+if (MOHITS_TEST_TONE)
+    target_compile_definitions (MohitsPro1 PRIVATE MOHITS_TEST_TONE=1)
+else()
+    target_compile_definitions (MohitsPro1 PRIVATE MOHITS_TEST_TONE=0)
+endif()
+
 target_sources(MohitsPro1 PRIVATE
     Source/ParameterLayout.cpp
     Source/PluginProcessor.cpp
