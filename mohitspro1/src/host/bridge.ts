@@ -1,4 +1,4 @@
-import { clamp01, type ParamId, type ParamMap } from "../params/spec.ts";
+import { clamp01, PARAM_IDS, type ParamId, type ParamMap } from "../params/spec.ts";
 
 export interface MeterSide {
   readonly dbfsDb: number; // -50..0 dBFS
@@ -117,9 +117,19 @@ export class HostWriteQueue {
   }
 }
 
+/** A JUCE WebSliderRelay as seen from the page. Values are normalized 0..1. */
+export interface JuceSliderState {
+  getNormalisedValue(): number;
+  setNormalisedValue(v: number): void;
+  sliderDragStarted(): void;
+  sliderDragEnded(): void;
+  valueChangedEvent: { addListener(fn: () => void): void };
+}
+
 declare global {
   interface Window {
     __JUCE__?: {
+      getSliderState?: (id: string) => JuceSliderState | undefined;
       backend?: {
         addEventListener: (event: string, cb: (payload: unknown) => void) => void;
         removeEventListener?: (event: string, cb: (payload: unknown) => void) => void;
@@ -130,7 +140,67 @@ declare global {
   }
 }
 
+/**
+ * Host adapter for the JUCE WebView. Every parameter is a WebSliderRelay created by the
+ * C++ editor, so gestures, automation and undo work like any native control.
+ */
+export function createJuceRelayAdapter(juce: NonNullable<Window["__JUCE__"]>): HostAdapter {
+  const states = new Map<ParamId, JuceSliderState | undefined>();
+  const stateOf = (id: ParamId): JuceSliderState | undefined => {
+    if (!states.has(id)) {
+      try {
+        states.set(id, juce.getSliderState?.(id));
+      } catch {
+        states.set(id, undefined);
+      }
+    }
+    return states.get(id);
+  };
+
+  return {
+    getAllParams() {
+      const out: Partial<ParamMap> = {};
+      for (const id of PARAM_IDS) {
+        const s = stateOf(id);
+        if (s) out[id] = s.getNormalisedValue();
+      }
+      return out;
+    },
+    subscribeParams(listener) {
+      let active = true;
+      for (const id of PARAM_IDS) {
+        const s = stateOf(id);
+        if (!s) continue;
+        s.valueChangedEvent.addListener(() => {
+          if (active) listener({ [id]: s.getNormalisedValue() } as Partial<ParamMap>);
+        });
+      }
+      return () => {
+        active = false;
+      };
+    },
+    subscribeMeters(listener) {
+      // Meters come from the C++ side in step 10. Until then the UI shows NO SIGNAL.
+      listener(null);
+      return () => {};
+    },
+    beginGesture(id) {
+      stateOf(id)?.sliderDragStarted();
+    },
+    setParam(id, value) {
+      stateOf(id)?.setNormalisedValue(value);
+    },
+    endGesture(id) {
+      stateOf(id)?.sliderDragEnded();
+    },
+  };
+}
+
 export function createBrowserHostAdapter(): HostAdapter {
+  if (typeof window !== "undefined" && window.__JUCE__?.getSliderState) {
+    return createJuceRelayAdapter(window.__JUCE__);
+  }
+
   const paramListeners = new Set<(patch: Partial<ParamMap>) => void>();
   const meterListeners = new Set<(frame: MeterFrame | null) => void>();
 

@@ -38,6 +38,13 @@ juce_add_plugin(MohitsPro1
     NEEDS_WEB_BROWSER           TRUE
 )
 
+# The web UI, packed into one file by the web project's build (see ../scripts/inline-ui.mjs).
+set (UI_HTML "${CMAKE_CURRENT_SOURCE_DIR}/../dist/mohits-ui.html")
+if (NOT EXISTS "${UI_HTML}")
+    message (FATAL_ERROR "The web UI is not built. Run 'npm install' and 'npm run build' in mohitspro1/ first.")
+endif()
+juce_add_binary_data (MohitsUIData SOURCES "${UI_HTML}")
+
 juce_generate_juce_header(MohitsPro1)
 
 target_sources(MohitsPro1 PRIVATE
@@ -54,6 +61,7 @@ target_compile_definitions(MohitsPro1 PUBLIC
 
 target_link_libraries(MohitsPro1 PRIVATE
     juce::juce_audio_utils
+    MohitsUIData
     juce::juce_gui_extra
     juce::juce_recommended_config_flags
     juce::juce_recommended_warning_flags
