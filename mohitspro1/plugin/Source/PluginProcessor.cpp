@@ -48,12 +48,18 @@ void MohitsProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     float* right = buffer.getWritePointer (1);
 
 #if MOHITS_TEST_TONE
-    // Diagnostic: output a 440 Hz tone at -12 dBFS instead of the audio.
+    // Diagnostic: output a 440 Hz tone at -12 dBFS, but only while the input has sound.
+    // A beep while the track plays means audio reaches the plugin's input.
+    float inputPeak = 0.0f;
+    for (int i = 0; i < numSamples; ++i)
+        inputPeak = std::fmax (inputPeak, std::fmax (std::fabs (left[i]), std::fabs (right[i])));
+    const float gate = inputPeak > 1.0e-5f ? 1.0f : 0.0f;
+
     static double testPhase = 0.0;
     const double increment = 2.0 * juce::MathConstants<double>::pi * 440.0 / currentSampleRate;
     for (int i = 0; i < numSamples; ++i)
     {
-        const float s = 0.25f * static_cast<float> (std::sin (testPhase));
+        const float s = gate * 0.25f * static_cast<float> (std::sin (testPhase));
         testPhase += increment;
         if (testPhase > 2.0 * juce::MathConstants<double>::pi)
             testPhase -= 2.0 * juce::MathConstants<double>::pi;
