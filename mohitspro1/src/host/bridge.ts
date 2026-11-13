@@ -1,4 +1,5 @@
 import { clamp01, PARAM_IDS, type ParamId, type ParamMap } from "../params/spec.ts";
+import { getSliderState, type JuceSliderState } from "../juce/juce-frontend.js";
 
 export interface MeterSide {
   readonly dbfsDb: number; // -50..0 dBFS
@@ -117,19 +118,10 @@ export class HostWriteQueue {
   }
 }
 
-/** A JUCE WebSliderRelay as seen from the page. Values are normalized 0..1. */
-export interface JuceSliderState {
-  getNormalisedValue(): number;
-  setNormalisedValue(v: number): void;
-  sliderDragStarted(): void;
-  sliderDragEnded(): void;
-  valueChangedEvent: { addListener(fn: () => void): void };
-}
-
 declare global {
   interface Window {
     __JUCE__?: {
-      getSliderState?: (id: string) => JuceSliderState | undefined;
+      initialisationData?: { __juce__sliders?: string[] };
       backend?: {
         addEventListener: (event: string, cb: (payload: unknown) => void) => void;
         removeEventListener?: (event: string, cb: (payload: unknown) => void) => void;
@@ -140,20 +132,33 @@ declare global {
   }
 }
 
+/** True inside the JUCE WebView. */
+export function isJuceHost(): boolean {
+  return typeof window !== "undefined" && window.__JUCE__ !== undefined;
+}
+
+/** The parameter IDs the plugin has registered a relay for. */
+function registeredRelayIds(): Set<string> {
+  return new Set(window.__JUCE__?.initialisationData?.__juce__sliders ?? []);
+}
+
+/** How many parameter relays the plugin registered, out of the total. */
+export function countJuceRelays(): number {
+  if (!isJuceHost()) return 0;
+  const registered = registeredRelayIds();
+  return PARAM_IDS.filter((id) => registered.has(id)).length;
+}
+
 /**
  * Host adapter for the JUCE WebView. Every parameter is a WebSliderRelay created by the
  * C++ editor, so gestures, automation and undo work like any native control.
  */
-export function createJuceRelayAdapter(juce: NonNullable<Window["__JUCE__"]>): HostAdapter {
-  const states = new Map<ParamId, JuceSliderState | undefined>();
+export function createJuceRelayAdapter(): HostAdapter {
+  const registered = registeredRelayIds();
+  const states = new Map<ParamId, JuceSliderState>();
   const stateOf = (id: ParamId): JuceSliderState | undefined => {
-    if (!states.has(id)) {
-      try {
-        states.set(id, juce.getSliderState?.(id));
-      } catch {
-        states.set(id, undefined);
-      }
-    }
+    if (!registered.has(id)) return undefined;
+    if (!states.has(id)) states.set(id, getSliderState(id));
     return states.get(id);
   };
 
@@ -196,22 +201,9 @@ export function createJuceRelayAdapter(juce: NonNullable<Window["__JUCE__"]>): H
   };
 }
 
-/** How many parameter relays the JUCE page can see, out of the total. 0 means none. */
-export function countJuceRelays(): number {
-  const juce = typeof window !== "undefined" ? window.__JUCE__ : undefined;
-  if (!juce?.getSliderState) return 0;
-  return PARAM_IDS.filter((id) => {
-    try {
-      return juce.getSliderState?.(id) !== undefined;
-    } catch {
-      return false;
-    }
-  }).length;
-}
-
 export function createBrowserHostAdapter(): HostAdapter {
-  if (typeof window !== "undefined" && window.__JUCE__?.getSliderState) {
-    return createJuceRelayAdapter(window.__JUCE__);
+  if (isJuceHost()) {
+    return createJuceRelayAdapter();
   }
 
   const paramListeners = new Set<(patch: Partial<ParamMap>) => void>();
