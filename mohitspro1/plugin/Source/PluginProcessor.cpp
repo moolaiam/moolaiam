@@ -17,39 +17,80 @@ MohitsProcessor::MohitsProcessor()
 
 void MohitsProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
-    currentSampleRate = sampleRate;
+    currentSampleRate = sampleRate > 0.0 ? sampleRate : 44100.0;
     currentBlockSize = samplesPerBlock;
-    masterChain.prepare (sampleRate);
+    masterChain.prepare (currentSampleRate);
+}
+
+void MohitsProcessor::releaseResources()
+{
+    masterChain.prepare (currentSampleRate);
 }
 
 bool MohitsProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 {
-    // Stereo in, stereo out only. Matches the {2, 2} channel setting.
-    return layouts.getMainInputChannelSet() == juce::AudioChannelSet::stereo()
-        && layouts.getMainOutputChannelSet() == juce::AudioChannelSet::stereo();
+    const auto mainIn  = layouts.getMainInputChannelSet();
+    const auto mainOut = layouts.getMainOutputChannelSet();
+
+    // Support {2, 2} stereo, {1, 2} mono-in/stereo-out (macOS Standalone mic / mono interface),
+    // and {1, 1} mono-in/mono-out (mono DAW inserts & auval).
+    if (mainIn != juce::AudioChannelSet::mono() && mainIn != juce::AudioChannelSet::stereo())
+        return false;
+
+    if (mainOut != juce::AudioChannelSet::mono() && mainOut != juce::AudioChannelSet::stereo())
+        return false;
+
+    if (mainIn == juce::AudioChannelSet::stereo() && mainOut == juce::AudioChannelSet::mono())
+        return false;
+
+    return true;
 }
 
 void MohitsProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
 {
     juce::ScopedNoDenormals noDenormals;
 
-    const int numSamples = buffer.getNumSamples();
+    const int numSamples    = buffer.getNumSamples();
+    const int totalNumIn    = getTotalNumInputChannels();
+    const int totalNumOut   = getTotalNumOutputChannels();
 
-    // Stereo only, matching the bus layout. Anything else passes through untouched.
-    if (buffer.getNumChannels() < 2)
+    if (numSamples <= 0 || totalNumOut <= 0)
         return;
+
+    // If the host provided no active input channels, clear outputs cleanly and exit.
+    if (totalNumIn <= 0)
+    {
+        buffer.clear();
+        return;
+    }
+
+    // Clear any extra output channels beyond the active input channels first.
+    for (int ch = totalNumIn; ch < totalNumOut; ++ch)
+        buffer.clear (ch, 0, numSamples);
 
     masterChain.setParams (pInputTrim->load(),
                            pOutputTrim->load(),
                            pMix->load(),
                            pBypass->load() >= 0.5f);
 
+    // Mono-in, mono-out ({1, 1})
+    if (totalNumIn == 1 && totalNumOut == 1)
+    {
+        float* mono = buffer.getWritePointer (0);
+        for (int i = 0; i < numSamples; ++i)
+            masterChain.processMonoSample (mono[i]);
+        return;
+    }
+
+    // Mono-in, stereo-out ({1, 2}): duplicate mono input to the right channel before processing.
+    if (totalNumIn == 1 && totalNumOut >= 2)
+        buffer.copyFrom (1, 0, buffer, 0, 0, numSamples);
+
     float* left  = buffer.getWritePointer (0);
     float* right = buffer.getWritePointer (1);
 
 #if MOHITS_TEST_TONE
-    // Diagnostic: output a 440 Hz tone at -12 dBFS, but only while the input has sound.
-    // A beep while the track plays means audio reaches the plugin's input.
+    // Diagnostic: output a 440 Hz tone at -12 dBFS while the input receives signal.
     float inputPeak = 0.0f;
     for (int i = 0; i < numSamples; ++i)
         inputPeak = std::fmax (inputPeak, std::fmax (std::fabs (left[i]), std::fabs (right[i])));
@@ -63,7 +104,7 @@ void MohitsProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
         testPhase += increment;
         if (testPhase > 2.0 * juce::MathConstants<double>::pi)
             testPhase -= 2.0 * juce::MathConstants<double>::pi;
-        left[i] = s;
+        left[i]  = s;
         right[i] = s;
     }
 #else
@@ -71,7 +112,7 @@ void MohitsProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
         masterChain.processSample (left[i], right[i]);
 #endif
 
-    // Clear any extra output channels.
+    // Clear any extra output channels beyond stereo.
     for (int ch = 2; ch < buffer.getNumChannels(); ++ch)
         buffer.clear (ch, 0, numSamples);
 }
@@ -84,8 +125,8 @@ juce::AudioProcessorEditor* MohitsProcessor::createEditor()
 void MohitsProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
     auto state = apvts.copyState();
-    std::unique_ptr<juce::XmlElement> xml (state.createXml());
-    copyXmlToBinary (*xml, destData);
+    if (auto xml = state.createXml())
+        copyXmlToBinary (*xml, destData);
 }
 
 void MohitsProcessor::setStateInformation (const void* data, int sizeInBytes)

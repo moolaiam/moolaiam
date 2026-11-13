@@ -4,8 +4,6 @@
 #include "ParameterLayout.h"
 #include "MasterChain.h"
 
-// Step 2 of the processor: parameters and state are in place. Audio passes through
-// unchanged until the DSP steps (master chain, neural slots, filters) are added.
 class MohitsProcessor : public juce::AudioProcessor
 {
 public:
@@ -13,7 +11,7 @@ public:
     ~MohitsProcessor() override = default;
 
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
-    void releaseResources() override {}
+    void releaseResources() override;
     bool isBusesLayoutSupported (const BusesLayout& layouts) const override;
     void processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi) override;
 

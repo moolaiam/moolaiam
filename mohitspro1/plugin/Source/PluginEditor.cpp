@@ -76,6 +76,9 @@ void MohitsEditor::resized()
 // Every URL gets the same packed page, since the UI is a single file.
 std::optional<juce::WebBrowserComponent::Resource> MohitsEditor::serveUi (const juce::String&)
 {
+    if (BinaryData::mohitsui_html == nullptr || BinaryData::mohitsui_htmlSize <= 0)
+        return std::nullopt;
+
     const auto* begin = reinterpret_cast<const std::byte*> (BinaryData::mohitsui_html);
     return juce::WebBrowserComponent::Resource {
         std::vector<std::byte> (begin, begin + BinaryData::mohitsui_htmlSize),

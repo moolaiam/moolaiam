@@ -36,6 +36,8 @@ juce_add_plugin(MohitsPro1
     VST3_CATEGORIES             Fx
     AU_MAIN_TYPE                kAudioUnitType_Effect
     NEEDS_WEB_BROWSER           TRUE
+    MICROPHONE_PERMISSION_ENABLED TRUE
+    MICROPHONE_PERMISSION_TEXT  "Audio input is required for processing."
 )
 
 # The web UI, packed into one file by the web project's build (see ../scripts/inline-ui.mjs).

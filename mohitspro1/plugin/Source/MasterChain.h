@@ -43,28 +43,47 @@ namespace MohitsDSP
 
         void prepare (double sampleRate)
         {
-            inputGain.reset  (sampleRate, smoothingSeconds, 1.0f);
-            outputGain.reset (sampleRate, smoothingSeconds, 1.0f);
-            mix.reset        (sampleRate, smoothingSeconds, 1.0f);
+            inputGain.reset    (sampleRate, smoothingSeconds, 1.0f);
+            outputGain.reset   (sampleRate, smoothingSeconds, 1.0f);
+            mix.reset          (sampleRate, smoothingSeconds, 1.0f);
             bypassAmount.reset (sampleRate, smoothingSeconds, 0.0f);
         }
 
         /// Normalized 0..1 values, the same numbers the UI and host use.
         void setParams (float inputNorm, float outputNorm, float mixNorm, bool bypassed)
         {
-            inputGain.setTarget (MohitsConv::trimLinear (inputNorm));
-            outputGain.setTarget (MohitsConv::trimLinear (outputNorm));
-            mix.setTarget (MohitsConv::clamp01 (mixNorm));
+            inputGain.setTarget    (MohitsConv::trimLinear (inputNorm));
+            outputGain.setTarget   (MohitsConv::trimLinear (outputNorm));
+            mix.setTarget          (MohitsConv::clamp01 (mixNorm));
             bypassAmount.setTarget (bypassed ? 1.0f : 0.0f);
+        }
+
+        /// Processes one mono sample in place.
+        void processMonoSample (float& sample)
+        {
+            const float gIn  = inputGain.next();
+            const float gOut = outputGain.next();
+            const float m    = mix.next();
+            const float b    = bypassAmount.next(); // 1 = fully bypassed
+
+            const float dry = sample;
+            float wet = dry * gIn;
+
+            // ── Mono processing chain goes here (steps 4 to 8) ─────────────────
+
+            wet *= gOut;
+
+            const float mixed = dry * (1.0f - m) + wet * m;
+            sample = dry * b + mixed * (1.0f - b);
         }
 
         /// Processes one stereo sample in place.
         void processSample (float& left, float& right)
         {
-            const float gIn = inputGain.next();
+            const float gIn  = inputGain.next();
             const float gOut = outputGain.next();
-            const float m = mix.next();
-            const float b = bypassAmount.next(); // 1 = fully bypassed
+            const float m    = mix.next();
+            const float b    = bypassAmount.next(); // 1 = fully bypassed
 
             const float dryL = left;
             const float dryR = right;
