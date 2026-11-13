@@ -8,10 +8,11 @@ import {
   QUALITY_MODES,
   choiceToNormalized,
   normalizedToChoiceIndex,
+  PARAM_IDS,
   type ParamId,
   type ParamMap,
 } from "../params/spec.ts";
-import { createBrowserHostAdapter, HostWriteQueue, type HostAdapter, type MeterFrame } from "../host/bridge.ts";
+import { countJuceRelays, createBrowserHostAdapter, HostWriteQueue, type HostAdapter, type MeterFrame } from "../host/bridge.ts";
 import { CUSTOM_PRESET, PluginController, type PluginState } from "../state/store.ts";
 import { Knob } from "./Knob.tsx";
 import { VUMeter } from "./VUMeter.tsx";
@@ -295,6 +296,7 @@ export default function MohitsPro1({ host: injectedHost }: MohitsPro1Props) {
   const isCustom = pluginState.presetName === CUSTOM_PRESET;
   const isUserPreset = pluginState.userPresetNames.includes(pluginState.presetName);
   const isJuce = typeof window !== "undefined" && window.__JUCE__ !== undefined;
+  const relayCount = useMemo(() => countJuceRelays(), []);
 
   const handlers: ControlHandlers = {
     onBeginGesture: (id) => controller.beginEdit(id),
@@ -642,7 +644,9 @@ export default function MohitsPro1({ host: injectedHost }: MohitsPro1Props) {
 
         {/* FOOTER */}
         <footer className="mh-footer">
-          <span>Host: {isJuce ? "JUCE" : "Preview (no plugin host)"}</span>
+          <span>
+            Host: {isJuce ? `JUCE, relays ${relayCount}/${PARAM_IDS.length}` : "Preview (no plugin host)"}
+          </span>
           <span>Active slot: {pluginState.activeSlot}</span>
         </footer>
       </div>

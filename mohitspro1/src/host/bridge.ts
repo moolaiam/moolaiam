@@ -196,6 +196,19 @@ export function createJuceRelayAdapter(juce: NonNullable<Window["__JUCE__"]>): H
   };
 }
 
+/** How many parameter relays the JUCE page can see, out of the total. 0 means none. */
+export function countJuceRelays(): number {
+  const juce = typeof window !== "undefined" ? window.__JUCE__ : undefined;
+  if (!juce?.getSliderState) return 0;
+  return PARAM_IDS.filter((id) => {
+    try {
+      return juce.getSliderState?.(id) !== undefined;
+    } catch {
+      return false;
+    }
+  }).length;
+}
+
 export function createBrowserHostAdapter(): HostAdapter {
   if (typeof window !== "undefined" && window.__JUCE__?.getSliderState) {
     return createJuceRelayAdapter(window.__JUCE__);
