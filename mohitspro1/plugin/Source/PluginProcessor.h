@@ -3,6 +3,8 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "ParameterLayout.h"
 #include "MasterChain.h"
+#include "NeuralSlot.h"
+#include <array>
 #include <atomic>
 
 class MohitsProcessor : public juce::AudioProcessor
@@ -55,6 +57,19 @@ private:
     std::atomic<float>* pOutputTrim = nullptr;
     std::atomic<float>* pMix        = nullptr;
     std::atomic<float>* pBypass     = nullptr;
+
+    // Neural slots (step 4): parameter pointers and the processing chain.
+    struct SlotPointers
+    {
+        std::atomic<float>* enabled  = nullptr;
+        std::atomic<float>* gain     = nullptr;
+        std::atomic<float>* drive    = nullptr;
+        std::atomic<float>* x2       = nullptr;
+        std::atomic<float>* harmonic = nullptr;
+        std::atomic<float>* type     = nullptr;
+    };
+    std::array<SlotPointers, 4> slotPointers;
+    MohitsDSP::NeuralChain neural;
 
     void publishMeters (const float* left, const float* right, int numSamples);
 

@@ -1,41 +1,15 @@
 #pragma once
 
 // Pure C++ (no JUCE). Master section of the processor: input trim, output trim,
-// dry/wet mix and bypass. The neural slots, filters and EQ go between the trims
-// in later steps; the marked spot below is where they plug in.
+// dry/wet mix and bypass. The processing between the trims is passed in as a function,
+// so the neural slots, filters and EQ plug in there without changing this file.
 
 #include <cmath>
 #include "ParamConversion.h"
+#include "Smoothed.h"
 
 namespace MohitsDSP
 {
-    /// One-pole smoother. Moves toward its target with the given time constant and
-    /// snaps to the target once it is close enough, so settled values are exact.
-    class Smoothed
-    {
-    public:
-        void reset (double sampleRate, double timeSec, float initial)
-        {
-            coeff = timeSec > 0.0 ? static_cast<float> (std::exp (-1.0 / (sampleRate * timeSec))) : 0.0f;
-            current = target = initial;
-        }
-
-        void setTarget (float newTarget) { target = newTarget; }
-
-        float next()
-        {
-            current = target + (current - target) * coeff;
-            if (std::fabs (current - target) < 1.0e-6f)
-                current = target;
-            return current;
-        }
-
-    private:
-        float coeff = 0.0f;
-        float current = 0.0f;
-        float target = 0.0f;
-    };
-
     class MasterChain
     {
     public:
@@ -58,8 +32,9 @@ namespace MohitsDSP
             bypassAmount.setTarget (bypassed ? 1.0f : 0.0f);
         }
 
-        /// Processes one mono sample in place.
-        void processMonoSample (float& sample)
+        /// Processes one mono sample in place. `processWet` runs on the signal between the trims.
+        template <typename WetFn>
+        void processMonoSample (float& sample, WetFn&& processWet)
         {
             const float gIn  = inputGain.next();
             const float gOut = outputGain.next();
@@ -68,17 +43,21 @@ namespace MohitsDSP
 
             const float dry = sample;
             float wet = dry * gIn;
-
-            // ── Mono processing chain goes here (steps 4 to 8) ─────────────────
-
+            processWet (wet);
             wet *= gOut;
 
             const float mixed = dry * (1.0f - m) + wet * m;
             sample = dry * b + mixed * (1.0f - b);
         }
 
-        /// Processes one stereo sample in place.
-        void processSample (float& left, float& right)
+        void processMonoSample (float& sample)
+        {
+            processMonoSample (sample, [](float&) {});
+        }
+
+        /// Processes one stereo sample in place. `processWet` runs on the signal between the trims.
+        template <typename WetFn>
+        void processSample (float& left, float& right, WetFn&& processWet)
         {
             const float gIn  = inputGain.next();
             const float gOut = outputGain.next();
@@ -90,9 +69,7 @@ namespace MohitsDSP
 
             float wetL = dryL * gIn;
             float wetR = dryR * gIn;
-
-            // ── Processing chain goes here (steps 4 to 8) ──────────────────────
-            // wetL / wetR are processed by the neural slots, EQ and filters.
+            processWet (wetL, wetR);
 
             wetL *= gOut;
             wetR *= gOut;
@@ -104,6 +81,11 @@ namespace MohitsDSP
             // Bypass crossfade. When fully bypassed this is exactly the dry input.
             left  = dryL * b + mixedL * (1.0f - b);
             right = dryR * b + mixedR * (1.0f - b);
+        }
+
+        void processSample (float& left, float& right)
+        {
+            processSample (left, right, [](float&, float&) {});
         }
 
     private:

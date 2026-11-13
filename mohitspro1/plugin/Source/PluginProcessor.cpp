@@ -13,6 +13,17 @@ MohitsProcessor::MohitsProcessor()
     pOutputTrim = apvts.getRawParameterValue (MohitsIDs::outputGain);
     pMix        = apvts.getRawParameterValue (MohitsIDs::mix);
     pBypass     = apvts.getRawParameterValue (MohitsIDs::bypass);
+
+    for (int n = 0; n < MohitsDSP::NeuralChain::slotCount; ++n)
+    {
+        auto& p = slotPointers[static_cast<size_t> (n)];
+        p.enabled  = apvts.getRawParameterValue (MohitsIDs::slotEnabled[n]);
+        p.gain     = apvts.getRawParameterValue (MohitsIDs::slotGain[n]);
+        p.drive    = apvts.getRawParameterValue (MohitsIDs::slotDrive[n]);
+        p.x2       = apvts.getRawParameterValue (MohitsIDs::slotX2[n]);
+        p.harmonic = apvts.getRawParameterValue (MohitsIDs::slotHarmonic[n]);
+        p.type     = apvts.getRawParameterValue (MohitsIDs::slotType[n]);
+    }
 }
 
 void MohitsProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
@@ -20,6 +31,7 @@ void MohitsProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     currentSampleRate = sampleRate > 0.0 ? sampleRate : 44100.0;
     currentBlockSize = samplesPerBlock;
     masterChain.prepare (currentSampleRate);
+    neural.prepare (currentSampleRate);
 }
 
 void MohitsProcessor::releaseResources()
@@ -106,12 +118,23 @@ void MohitsProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
                            pMix->load(),
                            pBypass->load() >= 0.5f);
 
+    for (int n = 0; n < MohitsDSP::NeuralChain::slotCount; ++n)
+    {
+        const auto& p = slotPointers[static_cast<size_t> (n)];
+        neural.slot (n).setParams (p.enabled->load() >= 0.5f,
+                                   p.gain->load(),
+                                   p.drive->load(),
+                                   p.x2->load() >= 0.5f,
+                                   p.harmonic->load(),
+                                   MohitsConv::choiceIndex (p.type->load(), 5));
+    }
+
     // Mono-in, mono-out ({1, 1})
     if (totalNumIn == 1 && totalNumOut == 1)
     {
         float* mono = buffer.getWritePointer (0);
         for (int i = 0; i < numSamples; ++i)
-            masterChain.processMonoSample (mono[i]);
+            masterChain.processMonoSample (mono[i], [this] (float& s) { neural.processMono (s); });
         publishMeters (mono, mono, numSamples);
         return;
     }
@@ -143,7 +166,7 @@ void MohitsProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     }
 #else
     for (int i = 0; i < numSamples; ++i)
-        masterChain.processSample (left[i], right[i]);
+        masterChain.processSample (left[i], right[i], [this] (float& a, float& b) { neural.processSample (a, b); });
 #endif
 
     // Clear any extra output channels beyond stereo.
