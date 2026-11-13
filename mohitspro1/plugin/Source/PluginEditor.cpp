@@ -31,10 +31,25 @@ namespace
 
         return ids;
     }
+
+    // Linear amplitude to dBFS. Silence is reported as -100 dB, which the page clamps to its floor.
+    float toDb (float amplitude)
+    {
+        return amplitude > 1.0e-5f ? 20.0f * std::log10 (amplitude) : -100.0f;
+    }
+
+    juce::var meterChannel (float peak, float rms)
+    {
+        auto* channel = new juce::DynamicObject();
+        channel->setProperty ("dbfsDb", toDb (peak));
+        channel->setProperty ("vuDb", toDb (rms));
+        return juce::var (channel);
+    }
 }
 
 MohitsEditor::MohitsEditor (MohitsProcessor& processor)
-    : AudioProcessorEditor (processor)
+    : AudioProcessorEditor (processor),
+      processorRef (processor)
 {
     // One relay per parameter. The attachment keeps the relay and the parameter in sync,
     // including gestures and host automation.
@@ -63,14 +78,38 @@ MohitsEditor::MohitsEditor (MohitsProcessor& processor)
 
     setSize (960, 800);
     setResizable (false, false);
+    startTimerHz (30);
 }
 
-MohitsEditor::~MohitsEditor() = default;
+MohitsEditor::~MohitsEditor()
+{
+    stopTimer();
+}
 
 void MohitsEditor::resized()
 {
     if (webView != nullptr)
         webView->setBounds (getLocalBounds());
+}
+
+// Sends the output meter levels to the page. Peaks are reset after each send, so the page
+// receives the largest peak since the previous send.
+void MohitsEditor::timerCallback()
+{
+    if (webView == nullptr)
+        return;
+
+    auto& meters = processorRef.meters;
+    const float peakL = meters.peakL.exchange (0.0f, std::memory_order_relaxed);
+    const float peakR = meters.peakR.exchange (0.0f, std::memory_order_relaxed);
+    const float rmsL  = meters.rmsL.load (std::memory_order_relaxed);
+    const float rmsR  = meters.rmsR.load (std::memory_order_relaxed);
+
+    auto* frame = new juce::DynamicObject();
+    frame->setProperty ("left",  meterChannel (peakL, rmsL));
+    frame->setProperty ("right", meterChannel (peakR, rmsR));
+
+    webView->emitEventIfBrowserIsVisible ("meters", juce::var (frame));
 }
 
 // Every URL gets the same packed page, since the UI is a single file.

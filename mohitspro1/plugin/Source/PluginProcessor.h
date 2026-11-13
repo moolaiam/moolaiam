@@ -3,6 +3,7 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "ParameterLayout.h"
 #include "MasterChain.h"
+#include <atomic>
 
 class MohitsProcessor : public juce::AudioProcessor
 {
@@ -35,6 +36,15 @@ public:
     // Every parameter lives here. The UI and the host both talk to this.
     juce::AudioProcessorValueTreeState apvts;
 
+    // Output meter values. The audio thread writes them, the editor reads them.
+    // Peaks are linear, the largest since the editor last read them. RMS is per block.
+    struct MeterValues
+    {
+        std::atomic<float> peakL { 0.0f }, peakR { 0.0f };
+        std::atomic<float> rmsL { 0.0f },  rmsR { 0.0f };
+    };
+    MeterValues meters;
+
 private:
     double currentSampleRate = 44100.0;
     int currentBlockSize = 512;
@@ -45,6 +55,8 @@ private:
     std::atomic<float>* pOutputTrim = nullptr;
     std::atomic<float>* pMix        = nullptr;
     std::atomic<float>* pBypass     = nullptr;
+
+    void publishMeters (const float* left, const float* right, int numSamples);
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MohitsProcessor)
 };

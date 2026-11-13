@@ -149,6 +149,25 @@ export function countJuceRelays(): number {
   return PARAM_IDS.filter((id) => registered.has(id)).length;
 }
 
+/** Checks a meter message from the plugin. Anything malformed is dropped. */
+function toMeterFrame(payload: unknown): MeterFrame | null {
+  if (typeof payload !== "object" || payload === null) return null;
+  const p = payload as Record<string, unknown>;
+  const side = (value: unknown): MeterSide | null => {
+    if (typeof value !== "object" || value === null) return null;
+    const v = value as Record<string, unknown>;
+    if (typeof v.dbfsDb !== "number" || typeof v.vuDb !== "number") return null;
+    if (!Number.isFinite(v.dbfsDb) || !Number.isFinite(v.vuDb)) return null;
+    return { dbfsDb: v.dbfsDb, vuDb: v.vuDb };
+  };
+  const left = side(p.left);
+  const right = side(p.right);
+  return left && right ? { left, right } : null;
+}
+
+/** A meter message older than this counts as "no signal". */
+const METER_STALE_MS = 500;
+
 /**
  * Host adapter for the JUCE WebView. Every parameter is a WebSliderRelay created by the
  * C++ editor, so gestures, automation and undo work like any native control.
@@ -185,9 +204,28 @@ export function createJuceRelayAdapter(): HostAdapter {
       };
     },
     subscribeMeters(listener) {
-      // Meters come from the C++ side in step 10. Until then the UI shows NO SIGNAL.
+      let active = true;
+      let lastFrameAt = 0;
+
+      window.__JUCE__?.backend?.addEventListener("meters", (payload: unknown) => {
+        if (!active) return;
+        const frame = toMeterFrame(payload);
+        if (frame) {
+          lastFrameAt = Date.now();
+          listener(frame);
+        }
+      });
+
+      // No meter message for a while means the plugin isn't sending audio levels.
+      const staleTimer = window.setInterval(() => {
+        if (active && Date.now() - lastFrameAt > METER_STALE_MS) listener(null);
+      }, 250);
+
       listener(null);
-      return () => {};
+      return () => {
+        active = false;
+        window.clearInterval(staleTimer);
+      };
     },
     beginGesture(id) {
       stateOf(id)?.sliderDragStarted();

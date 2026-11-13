@@ -46,6 +46,39 @@ bool MohitsProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
     return true;
 }
 
+namespace
+{
+    // Raises an atomic peak if the new value is larger. Lock-free, safe on the audio thread.
+    void raisePeak (std::atomic<float>& target, float value)
+    {
+        float current = target.load (std::memory_order_relaxed);
+        while (value > current && ! target.compare_exchange_weak (current, value, std::memory_order_relaxed))
+        {
+        }
+    }
+}
+
+void MohitsProcessor::publishMeters (const float* left, const float* right, int numSamples)
+{
+    if (numSamples <= 0)
+        return;
+
+    float peakL = 0.0f, peakR = 0.0f, sumL = 0.0f, sumR = 0.0f;
+    for (int i = 0; i < numSamples; ++i)
+    {
+        const float l = left[i], r = right[i];
+        peakL = std::fmax (peakL, std::fabs (l));
+        peakR = std::fmax (peakR, std::fabs (r));
+        sumL += l * l;
+        sumR += r * r;
+    }
+
+    raisePeak (meters.peakL, peakL);
+    raisePeak (meters.peakR, peakR);
+    meters.rmsL.store (std::sqrt (sumL / static_cast<float> (numSamples)), std::memory_order_relaxed);
+    meters.rmsR.store (std::sqrt (sumR / static_cast<float> (numSamples)), std::memory_order_relaxed);
+}
+
 void MohitsProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
 {
     juce::ScopedNoDenormals noDenormals;
@@ -79,6 +112,7 @@ void MohitsProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
         float* mono = buffer.getWritePointer (0);
         for (int i = 0; i < numSamples; ++i)
             masterChain.processMonoSample (mono[i]);
+        publishMeters (mono, mono, numSamples);
         return;
     }
 
@@ -115,6 +149,8 @@ void MohitsProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     // Clear any extra output channels beyond stereo.
     for (int ch = 2; ch < buffer.getNumChannels(); ++ch)
         buffer.clear (ch, 0, numSamples);
+
+    publishMeters (left, right, numSamples);
 }
 
 juce::AudioProcessorEditor* MohitsProcessor::createEditor()
