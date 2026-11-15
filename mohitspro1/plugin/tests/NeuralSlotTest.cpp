@@ -88,9 +88,15 @@ int main()
         b.prepare (sr);
         a.setParams (true, 0.5f, 0.5f, false, 0.0f, 0);
         b.setParams (true, 0.5f, 0.5f, true, 0.0f, 0);
-        const float pa = sinePeak (a, 0.4f);
-        const float pb = sinePeak (b, 0.4f);
-        check (std::fabs (pa - pb) > 1e-3f, "X2 changes the output");
+        // Compare the waveforms: X2 keeps the level, so the difference shows in the shape.
+        DcBlocker dcA, dcB;
+        float maxDiff = 0.0f;
+        for (int i = 0; i < 24000; ++i)
+        {
+            const float x = 0.4f * std::sin (2.0f * 3.14159265f * 0.0005f * i);
+            maxDiff = std::fmax (maxDiff, std::fabs (a.processSample (x, dcA) - b.processSample (x, dcB)));
+        }
+        check (maxDiff > 1e-3f, "X2 changes the waveform");
     }
 
     // 6. A DC offset from the bias is removed once settled.

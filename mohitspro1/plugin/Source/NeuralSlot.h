@@ -5,7 +5,9 @@
 // and a DC blocker. X2 runs the curve a second time.
 //
 // Defaults chosen without the sound designer's input (to confirm by ear):
-//   - Drive 0..100% maps to 1x..10x input into the curve.
+//   - Drive 0..100% maps to 1x..4x input into the curve.
+//   - Each slot is level-compensated, so its output RMS matches its input RMS for a
+//     typical signal. Without this, a chain of slots stacks up level and clips.
 //   - Harmonic exponent 0..100% maps to an asymmetry bias of 0..0.3 (even harmonics).
 //   - X2 runs the saturation curve twice.
 
@@ -55,6 +57,27 @@ namespace MohitsDSP
         return saturate (type, x + bias) - saturate (type, bias);
     }
 
+    /// Output gain that makes a 0.25-amplitude sine leave the slot at the same RMS level it
+    /// entered with. Keeps a chain of slots from stacking up loudness.
+    inline float levelCompensation (SaturationType type, float drive, float bias, bool x2)
+    {
+        constexpr int samples = 256;
+        float inEnergy = 0.0f;
+        float outEnergy = 0.0f;
+        for (int i = 0; i < samples; ++i)
+        {
+            const float x = 0.25f * std::sin (2.0f * 3.14159265f * static_cast<float> (i) / samples);
+            float y = saturateStage (type, x * drive, bias);
+            if (x2)
+                y = saturateStage (type, y, bias);
+            inEnergy += x * x;
+            outEnergy += y * y;
+        }
+        if (outEnergy < 1.0e-12f)
+            return 1.0f;
+        return std::sqrt (inEnergy / outEnergy);
+    }
+
     /// Removes DC offset, which the bias can add. One per channel per slot.
     struct DcBlocker
     {
@@ -78,6 +101,7 @@ namespace MohitsDSP
             gain.reset (sampleRate, 0.02, 1.0f);
             drive.reset (sampleRate, 0.02, 1.0f);
             harmonic.reset (sampleRate, 0.02, 0.0f);
+            makeup.reset (sampleRate, 0.02, 1.0f);
         }
 
         /// Normalized 0..1 values, the same numbers the UI and host use.
@@ -87,9 +111,13 @@ namespace MohitsDSP
             enabled = isEnabled;
             x2 = isX2;
             type = static_cast<SaturationType> (std::clamp (typeIndex, 0, 4));
+            const float driveAmount = 1.0f + 3.0f * MohitsConv::clamp01 (driveNorm);
+            const float bias = 0.3f * MohitsConv::clamp01 (harmonicNorm);
+
             gain.setTarget (MohitsConv::trimLinear (gainNorm));
-            drive.setTarget (1.0f + 9.0f * MohitsConv::clamp01 (driveNorm));
-            harmonic.setTarget (0.3f * MohitsConv::clamp01 (harmonicNorm));
+            drive.setTarget (driveAmount);
+            harmonic.setTarget (bias);
+            makeup.setTarget (levelCompensation (type, driveAmount, bias, isX2));
         }
 
         /// Processes one sample of one channel. `dc` is that channel's DC blocker.
@@ -98,6 +126,7 @@ namespace MohitsDSP
             const float g = gain.next();
             const float d = drive.next();
             const float bias = harmonic.next();
+            const float compensation = makeup.next();
 
             if (! enabled)
                 return x;
@@ -106,7 +135,7 @@ namespace MohitsDSP
             if (x2)
                 y = saturateStage (type, y, bias);
 
-            return dc.process (y);
+            return dc.process (y * compensation);
         }
 
     private:
@@ -116,6 +145,7 @@ namespace MohitsDSP
         Smoothed gain;
         Smoothed drive;
         Smoothed harmonic;
+        Smoothed makeup;
     };
 
     /// The four slots in series. Channel state is kept per slot and per channel.
